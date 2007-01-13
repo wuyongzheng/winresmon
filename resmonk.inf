@@ -1,0 +1,42 @@
+[Version]
+Signature   = "$Windows NT$"
+Class       = "ActivityMonitor"
+ClassGuid   = {b86dff51-a31e-4bac-b3cf-e8cfe75c9fc2}
+Provider    = ATP
+DriverVer   = 01/01/2007,1.0.0.0
+
+[DestinationDirs]
+DefaultDestDir          = 12
+Resmonk.DriverFiles      = 12            ;%windir%\system32\drivers
+
+[DefaultInstall]
+OptionDesc = "Resource Monitor Driver"
+CopyFiles  = Resmonk.DriverFiles
+
+[DefaultInstall.Services]
+AddService = resmonk,,Resmonk.Service
+
+[DefaultUninstall]
+DelFiles   = Resmonk.DriverFiles
+
+[DefaultUninstall.Services]
+DelService = resmonk,0x200
+
+[Resmonk.Service]
+Resmonk          = resmonk
+Description      = "Resource Monitor Driver"
+ServiceBinary    = %12%\resmonk.sys    ;%windir%\system32\drivers\
+Dependencies     = "FltMgr"
+ServiceType      = 2                        ;SERVICE_FILE_SYSTEM_DRIVER
+StartType        = 3                        ;SERVICE_DEMAND_START
+ErrorControl     = 1                        ;SERVICE_ERROR_NORMAL
+LoadOrderGroup   = "FSFilter Activity Monitor"
+AddReg           = Resmonk.AddRegistry
+
+[Resmonk.AddRegistry]
+HKR,"Instances","DefaultInstance",0x00000000,"DefaultInstance"
+HKR,"Instances\DefaultInstance","Altitude",0x00000000,370000
+HKR,"Instances\DefaultInstance","Flags",0x00010001,0x0 ; auto attach
+
+[Resmonk.DriverFiles]
+resmonk.sys
