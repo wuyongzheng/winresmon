@@ -7,10 +7,40 @@ void process_event (const struct event *event)
 {
 	switch (event->type) {
 	case ET_FILE_CREATE:
-		printf("create: %s\n", event->path);
+		printf("%u %I64u %5d %5d create: %x \"%S\"\n",
+				event->serial, event->time.QuadPart, event->pid, event->tid,
+				event->status, event->path);
 		break;
 	case ET_FILE_CLOSE:
-		printf("close: %s\n", event->path);
+		printf("%u %I64u %5d %5d close: \"%S\"\n",
+				event->serial, event->time.QuadPart, event->pid, event->tid,
+				event->path);
+		break;
+	case ET_PROC_PROC_CREATE:
+		printf("%u %I64u %5d %5d proc_create: ppid=%d, pid=%d\n",
+				event->serial, event->time.QuadPart, event->pid, event->tid,
+				event->proc_proc_create.ppid, event->proc_proc_create.pid);
+		break;
+	case ET_PROC_PROC_TERM:
+		printf("%u %I64u %5d %5d proc_create: ppid=%d, pid=%d\n",
+				event->serial, event->time.QuadPart, event->pid, event->tid,
+				event->proc_proc_term.ppid, event->proc_proc_term.pid);
+		break;
+	case ET_PROC_THREAD_CREATE:
+		printf("%u %I64u %5d %5d thread_create: tid=%d\n",
+				event->serial, event->time.QuadPart, event->pid, event->tid,
+				event->proc_thread_create.tid);
+		break;
+	case ET_PROC_THREAD_TERM:
+		printf("%u %I64u %5d %5d thread_term: tid=%d\n",
+				event->serial, event->time.QuadPart, event->pid, event->tid,
+				event->proc_thread_create.tid);
+		break;
+	case ET_PROC_IMAGE:
+		printf("%u %I64u %5d %5d image: %d %08x %d \"%S\"\n",
+				event->serial, event->time.QuadPart, event->pid, event->tid,
+				event->proc_image.system, event->proc_image.base, event->proc_image.size,
+				event->path);
 		break;
 	default:
 		printf("unknown event\n");

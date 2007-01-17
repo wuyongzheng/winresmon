@@ -23,10 +23,16 @@
 enum event_type {
 	ET_FILE_CREATE,
 	ET_FILE_CLOSE,
+	ET_PROC_PROC_CREATE,
+	ET_PROC_PROC_TERM,
+	ET_PROC_THREAD_CREATE,
+	ET_PROC_THREAD_TERM,
+	ET_PROC_IMAGE,
 	NUMBER_OF_ET
 };
 
 struct event {
+	unsigned int serial;
 	LARGE_INTEGER time; // from KeQuerySystemTime
 	HANDLE pid;
 	HANDLE tid;
@@ -40,14 +46,33 @@ struct event {
 			unsigned long creation_disposition; // e.g. FILE_OPEN_IF
 			unsigned long create_options; // e.g. FILE_DIRECTORY_FILE
 		} file_create;
+		struct {
+			HANDLE ppid;
+			HANDLE pid;
+		} proc_proc_create;
+		struct {
+			HANDLE ppid;
+			HANDLE pid;
+		} proc_proc_term;
+		struct {
+			HANDLE tid;
+		} proc_thread_create;
+		struct {
+			HANDLE tid;
+		} proc_thread_term;
+		struct {
+			int system;
+			void *base;
+			unsigned int size;
+		} proc_image;
 	};
-	char path[MAX_PATH_SIZE]; // always '\0' terminated
+	short path[MAX_PATH_SIZE]; // always '\0' terminated
 };
 
 struct event_buffer {
 	int active; /* active is the one which keeps adding */
-	int missing;
-	int counters[2];
+	unsigned int missing;
+	unsigned int counters[2];
 	struct event buffers[2][EVENT_BUFFER_SIZE];
 };
 

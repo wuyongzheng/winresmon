@@ -5,6 +5,7 @@ static int enabled = 0;
 
 DRIVER_OBJECT *driver_object;
 
+static unsigned int event_serial = 0;
 static struct event_buffer *event_buffer = NULL;
 static HANDLE event_buffer_section = NULL;
 static FAST_MUTEX event_buffer_mutex;
@@ -13,8 +14,8 @@ static HANDLE event_buffer_readyeventhandle = NULL;
 
 void event_buffer_add (struct event *event)
 {
-	DbgPrint("adding...\n");
 	ExAcquireFastMutex(&event_buffer_mutex);
+	event->serial = event_serial ++;
 	if (event_buffer->counters[event_buffer->active] < EVENT_BUFFER_SIZE) {
 		RtlCopyMemory(&event_buffer->buffers[event_buffer->active][event_buffer->counters[event_buffer->active]], event, sizeof(struct event));
 		event_buffer->counters[event_buffer->active] ++;
@@ -24,7 +25,6 @@ void event_buffer_add (struct event *event)
 	if (event_buffer->counters[event_buffer->active] >= EVENT_BUFFER_THRESHOLD && !KeReadStateEvent(event_buffer_readyevent))
 		KeSetEvent(event_buffer_readyevent, 0, FALSE);
 	ExReleaseFastMutex(&event_buffer_mutex);
-	DbgPrint("added.\n");
 }
 
 static NTSTATUS event_buffer_init (void)
@@ -90,6 +90,7 @@ static NTSTATUS event_buffer_init (void)
 	KeClearEvent(event_buffer_readyevent);
 
 	/* do some final init */
+	event_serial = 0;
 	ExInitializeFastMutex(&event_buffer_mutex);
 	event_buffer->active = 0;
 	event_buffer->missing = 0;
