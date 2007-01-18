@@ -12,19 +12,34 @@ static FAST_MUTEX event_buffer_mutex;
 static KEVENT *event_buffer_readyevent = NULL;
 static HANDLE event_buffer_readyeventhandle = NULL;
 
-void event_buffer_add (struct event *event)
+struct event *event_buffer_start_add (void)
 {
+	struct event *event;
+
 	ExAcquireFastMutex(&event_buffer_mutex);
-	event->serial = event_serial ++;
+	event_serial ++;
 	if (event_buffer->counters[event_buffer->active] < EVENT_BUFFER_SIZE) {
-		RtlCopyMemory(&event_buffer->buffers[event_buffer->active][event_buffer->counters[event_buffer->active]], event, sizeof(struct event));
+		event = &event_buffer->buffers[event_buffer->active][event_buffer->counters[event_buffer->active]];
 		event_buffer->counters[event_buffer->active] ++;
+
+		event->serial = event_serial;
+		KeQuerySystemTime(&event->time);
+		event->pid = PsGetCurrentProcessId();
+		event->tid = PsGetCurrentThreadId();
 	} else {
+		event = NULL;
 		event_buffer->missing ++;
+		ExReleaseFastMutex(&event_buffer_mutex);
 	}
+
+	return event;
+}
+
+void event_buffer_finish_add (void)
+{
+	ExReleaseFastMutex(&event_buffer_mutex);
 	if (event_buffer->counters[event_buffer->active] >= EVENT_BUFFER_THRESHOLD && !KeReadStateEvent(event_buffer_readyevent))
 		KeSetEvent(event_buffer_readyevent, 0, FALSE);
-	ExReleaseFastMutex(&event_buffer_mutex);
 }
 
 static NTSTATUS event_buffer_init (void)

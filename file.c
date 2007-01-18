@@ -7,7 +7,7 @@ static FLT_PREOP_CALLBACK_STATUS on_pre_close (PFLT_CALLBACK_DATA data, PCFLT_RE
 {
 	NTSTATUS retval;
 	FLT_FILE_NAME_INFORMATION *name_info = NULL;
-	struct event event;
+	struct event *event;
 	int path_length;
 
 	retval = FltGetFileNameInformation(data,
@@ -18,18 +18,20 @@ static FLT_PREOP_CALLBACK_STATUS on_pre_close (PFLT_CALLBACK_DATA data, PCFLT_RE
 		return FLT_PREOP_SUCCESS_NO_CALLBACK;
 	}
 
-	KeQuerySystemTime(&event.time);
-	event.pid = PsGetCurrentProcessId();
-	event.tid = PsGetCurrentThreadId();
-	event.status = 0;
-	event.type = ET_FILE_CLOSE;
+	event = event_buffer_start_add();
+	if (event == NULL) {
+		FltReleaseFileNameInformation(name_info);
+		return FLT_PREOP_SUCCESS_NO_CALLBACK;
+	}
+
+	event->type = ET_FILE_CLOSE;
+	event->status = 0;
 	path_length = MAX_PATH_SIZE - 1 < name_info->Name.Length / 2 ? MAX_PATH_SIZE - 1 : name_info->Name.Length / 2;
-	RtlCopyMemory(event.path, name_info->Name.Buffer, path_length * 2);
-	event.path[path_length] = 0;
-	event_buffer_add(&event);
+	RtlCopyMemory(event->path, name_info->Name.Buffer, path_length * 2);
+	event->path[path_length] = 0;
+	event_buffer_finish_add();
 
 	FltReleaseFileNameInformation(name_info);
-
 	return FLT_PREOP_SUCCESS_NO_CALLBACK;
 }
 
@@ -37,7 +39,7 @@ static FLT_POSTOP_CALLBACK_STATUS on_post_create (PFLT_CALLBACK_DATA data, PCFLT
 {
 	NTSTATUS retval;
 	FLT_FILE_NAME_INFORMATION *name_info = NULL;
-	struct event event;
+	struct event *event;
 	int path_length;
 
 	retval = FltGetFileNameInformation(data,
@@ -48,20 +50,23 @@ static FLT_POSTOP_CALLBACK_STATUS on_post_create (PFLT_CALLBACK_DATA data, PCFLT
 		return FLT_POSTOP_FINISHED_PROCESSING;
 	}
 
-	KeQuerySystemTime(&event.time);
-	event.pid = PsGetCurrentProcessId();
-	event.tid = PsGetCurrentThreadId();
-	event.status = data->IoStatus.Status;
-	event.type = ET_FILE_CREATE;
-	event.file_create.desired_access       = data->Iopb->Parameters.Create.SecurityContext->DesiredAccess;
-	event.file_create.share_mode           = data->Iopb->Parameters.Create.ShareAccess;
-	event.file_create.attributes           = data->Iopb->Parameters.Create.FileAttributes;
-	event.file_create.creation_disposition = data->Iopb->Parameters.Create.Options >> 24;
-	event.file_create.create_options       = data->Iopb->Parameters.Create.Options & 0x00ffffff;
+	event = event_buffer_start_add();
+	if (event == NULL) {
+		FltReleaseFileNameInformation(name_info);
+		return FLT_POSTOP_FINISHED_PROCESSING;
+	}
+
+	event->type = ET_FILE_CREATE;
+	event->status = data->IoStatus.Status;
+	event->file_create.desired_access       = data->Iopb->Parameters.Create.SecurityContext->DesiredAccess;
+	event->file_create.share_mode           = data->Iopb->Parameters.Create.ShareAccess;
+	event->file_create.attributes           = data->Iopb->Parameters.Create.FileAttributes;
+	event->file_create.creation_disposition = data->Iopb->Parameters.Create.Options >> 24;
+	event->file_create.create_options       = data->Iopb->Parameters.Create.Options & 0x00ffffff;
 	path_length = MAX_PATH_SIZE - 1 < name_info->Name.Length / 2 ? MAX_PATH_SIZE - 1 : name_info->Name.Length / 2;
-	RtlCopyMemory(event.path, name_info->Name.Buffer, path_length * 2);
-	event.path[path_length] = 0;
-	event_buffer_add(&event);
+	RtlCopyMemory(event->path, name_info->Name.Buffer, path_length * 2);
+	event->path[path_length] = 0;
+	event_buffer_finish_add();
 
 	FltReleaseFileNameInformation(name_info);
 	return FLT_POSTOP_FINISHED_PROCESSING;

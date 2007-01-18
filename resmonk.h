@@ -6,7 +6,8 @@
 
 extern DRIVER_OBJECT *driver_object;
 
-void event_buffer_add (struct event *event);
+struct event *event_buffer_start_add (void);
+void event_buffer_finish_add (void);
 
 NTSTATUS syscall_init (void);
 void syscall_fini (void);

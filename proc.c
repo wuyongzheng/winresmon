@@ -3,33 +3,64 @@
 
 static void proc_notify_process (HANDLE ppid, HANDLE pid, BOOLEAN create)
 {
-	DbgPrint("resmon: process: %d %d %d\n", ppid, pid, create);
+	struct event *event;
+
+	event = event_buffer_start_add();
+	if (event == NULL)
+		return;
+
+	if (create) {
+		event->type = ET_PROC_PROC_CREATE;
+		event->status = 0;
+		event->proc_proc_create.ppid = ppid;
+		event->proc_proc_create.pid = pid;
+	} else {
+		event->type = ET_PROC_PROC_TERM;
+		event->status = 0;
+		event->proc_proc_create.ppid = ppid;
+		event->proc_proc_create.pid = pid;
+	}
+	event_buffer_finish_add();
 }
 
 static void proc_notify_thread (HANDLE pid, HANDLE tid, BOOLEAN create)
 {
-	DbgPrint("resmon: thread: %d %d %d\n", pid, tid, create);
+	struct event *event;
+
+	event = event_buffer_start_add();
+	if (event == NULL)
+		return;
+
+	if (create) {
+		event->type = ET_PROC_THREAD_CREATE;
+		event->status = 0;
+		event->proc_thread_create.tid = tid;
+	} else {
+		event->type = ET_PROC_THREAD_TERM;
+		event->status = 0;
+		event->proc_thread_term.tid = tid;
+	}
+	event_buffer_finish_add();
 }
 
 static void proc_notify_image (PUNICODE_STRING name, HANDLE pid, PIMAGE_INFO info)
 {
-	struct event event;
+	struct event *event;
 	int path_length;
 
-	DbgPrint("resmon: image: %d %S\n", pid, name == NULL || name->Buffer == NULL ? L"null" : name->Buffer);
+	event = event_buffer_start_add();
+	if (event == NULL)
+		return;
 
-	KeQuerySystemTime(&event.time);
-	event.pid = PsGetCurrentProcessId();
-	event.tid = PsGetCurrentThreadId();
-	event.status = 0;
-	event.type = ET_PROC_IMAGE;
-	event.proc_image.system = info->SystemModeImage;
-	event.proc_image.base = info->ImageBase;
-	event.proc_image.size = info->ImageSize;
+	event->type = ET_PROC_IMAGE;
+	event->status = 0;
+	event->proc_image.system = info->SystemModeImage;
+	event->proc_image.base = info->ImageBase;
+	event->proc_image.size = info->ImageSize;
 	path_length = MAX_PATH_SIZE - 1 < name->Length / 2 ? MAX_PATH_SIZE - 1 : name->Length / 2;
-	RtlCopyMemory(event.path, name->Buffer, path_length * 2);
-	event.path[path_length] = 0;
-	event_buffer_add(&event);
+	RtlCopyMemory(event->path, name->Buffer, path_length * 2);
+	event->path[path_length] = 0;
+	event_buffer_finish_add();
 }
 
 NTSTATUS proc_init (void)

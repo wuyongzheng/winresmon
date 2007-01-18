@@ -22,7 +22,7 @@ void process_event (const struct event *event)
 				event->proc_proc_create.ppid, event->proc_proc_create.pid);
 		break;
 	case ET_PROC_PROC_TERM:
-		printf("%u %I64u %5d %5d proc_create: ppid=%d, pid=%d\n",
+		printf("%u %I64u %5d %5d proc_term: ppid=%d, pid=%d\n",
 				event->serial, event->time.QuadPart, event->pid, event->tid,
 				event->proc_proc_term.ppid, event->proc_proc_term.pid);
 		break;

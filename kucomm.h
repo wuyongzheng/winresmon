@@ -36,8 +36,8 @@ struct event {
 	LARGE_INTEGER time; // from KeQuerySystemTime
 	HANDLE pid;
 	HANDLE tid;
-	unsigned long status;
 	enum event_type type;
+	unsigned long status;
 	union {
 		struct {
 			ACCESS_MASK desired_access; // e.g. FILE_READ_EA
