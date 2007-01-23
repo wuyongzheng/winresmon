@@ -24,8 +24,8 @@ struct event *event_buffer_start_add (void)
 
 		event->serial = event_serial;
 		KeQuerySystemTime(&event->time);
-		event->pid = PsGetCurrentProcessId();
-		event->tid = PsGetCurrentThreadId();
+		event->pid = (unsigned long)PsGetCurrentProcessId();
+		event->tid = (unsigned long)PsGetCurrentThreadId();
 	} else {
 		event = NULL;
 		event_buffer->missing ++;

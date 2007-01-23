@@ -39,8 +39,8 @@ enum event_type {
 struct event {
 	unsigned int serial;
 	LARGE_INTEGER time; // from KeQuerySystemTime
-	HANDLE pid;
-	HANDLE tid;
+	unsigned long pid;
+	unsigned long tid;
 	enum event_type type;
 	unsigned long status;
 	union {
