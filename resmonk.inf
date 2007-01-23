@@ -6,7 +6,7 @@ Provider    = ATP
 DriverVer   = 01/01/2007,1.0.0.0
 
 [DestinationDirs]
-DefaultDestDir          = 12
+DefaultDestDir           = 12
 Resmonk.DriverFiles      = 12            ;%windir%\system32\drivers
 
 [DefaultInstall]
@@ -24,13 +24,14 @@ DelService = resmonk,0x200
 
 [Resmonk.Service]
 Resmonk          = resmonk
+DisplayName      = "Resource Monitor Driver"
 Description      = "Resource Monitor Driver"
 ServiceBinary    = %12%\resmonk.sys    ;%windir%\system32\drivers\
 Dependencies     = "FltMgr"
-ServiceType      = 2                        ;SERVICE_FILE_SYSTEM_DRIVER
+ServiceType      = 1                        ;SERVICE_KERNEL_DRIVER (how about SERVICE_FILE_SYSTEM_DRIVER?)
 StartType        = 3                        ;SERVICE_DEMAND_START
 ErrorControl     = 1                        ;SERVICE_ERROR_NORMAL
-LoadOrderGroup   = "FSFilter Activity Monitor"
+LoadOrderGroup   = "FSFilter Activity Monitor" ; "NDIS"?
 AddReg           = Resmonk.AddRegistry
 
 [Resmonk.AddRegistry]
