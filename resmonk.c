@@ -272,6 +272,13 @@ static NTSTATUS dispatch_ioctl (PDEVICE_OBJECT DeviceObject, PIRP irp)
 	}
 }
 
+static NTSTATUS dispatch_invalid (PDEVICE_OBJECT DeviceObject, PIRP irp)
+{
+	irp->IoStatus.Status = STATUS_INVALID_DEVICE_REQUEST;
+	IoCompleteRequest(irp, IO_NO_INCREMENT);
+	return STATUS_INVALID_DEVICE_REQUEST;
+}
+
 static void DriverUnload (PDRIVER_OBJECT DriverObject)
 {
 	UNICODE_STRING str;
@@ -290,6 +297,7 @@ NTSTATUS DriverEntry (PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath)
 {
 	NTSTATUS status;
 	UNICODE_STRING device_name, sym_name;
+	int i;
 
 	driver_object = DriverObject;
 
@@ -315,7 +323,8 @@ NTSTATUS DriverEntry (PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath)
 		return status;
 	}
 
-	RtlZeroMemory(DriverObject->MajorFunction, IRP_MJ_MAXIMUM_FUNCTION * sizeof(DriverObject->MajorFunction[0]));
+	for (i = 0; i < IRP_MJ_MAXIMUM_FUNCTION; i ++)
+		DriverObject->MajorFunction[i] = dispatch_invalid;
 	DriverObject->MajorFunction[IRP_MJ_CREATE] =            dispatch_create;
 	DriverObject->MajorFunction[IRP_MJ_CLOSE] =             dispatch_close;
 	DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] =    dispatch_ioctl;

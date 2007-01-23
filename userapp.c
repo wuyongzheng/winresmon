@@ -6,6 +6,8 @@
 void process_event (const struct event *event)
 {
 	switch (event->type) {
+	case ET_IGNORE:
+		break;
 	case ET_FILE_CREATE:
 		printf("%u %I64u %5d %5d create: %x \"%S\"\n",
 				event->serial, event->time.QuadPart, event->pid, event->tid,
@@ -15,6 +17,26 @@ void process_event (const struct event *event)
 		printf("%u %I64u %5d %5d close: \"%S\"\n",
 				event->serial, event->time.QuadPart, event->pid, event->tid,
 				event->path);
+		break;
+	case ET_FILE_READ:
+		printf("%u %I64u %5d %5d read: %x \"%S\"\n",
+				event->serial, event->time.QuadPart, event->pid, event->tid,
+				event->status, event->path);
+		break;
+	case ET_FILE_WRITE:
+		printf("%u %I64u %5d %5d write: %x \"%S\"\n",
+				event->serial, event->time.QuadPart, event->pid, event->tid,
+				event->status, event->path);
+		break;
+	case ET_FILE_CREATE_MAILSLOT:
+		printf("%u %I64u %5d %5d mslot: %x \"%S\"\n",
+				event->serial, event->time.QuadPart, event->pid, event->tid,
+				event->status, event->path);
+		break;
+	case ET_FILE_CREATE_NAMED_PIPE:
+		printf("%u %I64u %5d %5d pipe: %x \"%S\"\n",
+				event->serial, event->time.QuadPart, event->pid, event->tid,
+				event->status, event->path);
 		break;
 	case ET_PROC_PROC_CREATE:
 		printf("%u %I64u %5d %5d proc_create: ppid=%d, pid=%d\n",

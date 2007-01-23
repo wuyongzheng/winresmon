@@ -21,8 +21,13 @@
 #define EVENT_BUFFER_THRESHOLD (EVENT_BUFFER_SIZE*3/4)
 
 enum event_type {
+	ET_IGNORE,
 	ET_FILE_CREATE,
 	ET_FILE_CLOSE,
+	ET_FILE_READ,
+	ET_FILE_WRITE,
+	ET_FILE_CREATE_MAILSLOT,
+	ET_FILE_CREATE_NAMED_PIPE,
 	ET_PROC_PROC_CREATE,
 	ET_PROC_PROC_TERM,
 	ET_PROC_THREAD_CREATE,
@@ -46,6 +51,10 @@ struct event {
 			unsigned long creation_disposition; // e.g. FILE_OPEN_IF
 			unsigned long create_options; // e.g. FILE_DIRECTORY_FILE
 		} file_create;
+		struct {
+			LARGE_INTEGER offset;
+			unsigned long length;
+		} file_rw;
 		struct {
 			HANDLE ppid;
 			HANDLE pid;
