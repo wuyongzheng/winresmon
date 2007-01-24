@@ -147,15 +147,10 @@ static NTSTATUS enable (void)
 	retval = proc_init();
 	if (retval != STATUS_SUCCESS)
 		goto out3;
-	retval = syscall_init();
-	if (retval != STATUS_SUCCESS)
-		goto out4;
 
 	enabled = 1;
 	return STATUS_SUCCESS;
 
-out4:
-	proc_fini();
 out3:
 	reg_fini();
 out2:
@@ -173,7 +168,6 @@ static void disable (void)
 		return;
 	}
 
-	syscall_fini();
 	proc_fini();
 	reg_fini();
 	file_fini();

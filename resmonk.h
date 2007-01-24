@@ -9,9 +9,6 @@ extern DRIVER_OBJECT *driver_object;
 struct event *event_buffer_start_add (void);
 void event_buffer_finish_add (void);
 
-NTSTATUS syscall_init (void);
-void syscall_fini (void);
-
 NTSTATUS reg_init (void);
 void reg_fini (void);
 
