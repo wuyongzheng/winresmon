@@ -5,9 +5,6 @@
 
 void process_event (const struct event *event)
 {
-	if (event->pid == GetCurrentProcessId())
-		return;
-
 	switch (event->type) {
 	case ET_IGNORE:
 		break;

@@ -1,7 +1,7 @@
 #include <ntddk.h> 
 #include "resmonk.h"
 
-static int enabled = 0;
+static unsigned long daemon_pid = 0; // monitor is disabled when daemon not is connected
 
 DRIVER_OBJECT *driver_object;
 
@@ -15,6 +15,9 @@ static HANDLE event_buffer_readyeventhandle = NULL;
 struct event *event_buffer_start_add (void)
 {
 	struct event *event;
+
+	if (daemon_pid == (unsigned long)PsGetCurrentProcessId())
+		return NULL;
 
 	ExAcquireFastMutex(&event_buffer_mutex);
 	event_serial ++;
@@ -130,9 +133,16 @@ static NTSTATUS enable (void)
 {
 	NTSTATUS retval;
 
-	if (enabled) {
-		DbgPrint("Opps! calling enable() while enabled\n");
+	if (daemon_pid) {
+		DbgPrint("Opps! calling enable() when daemon_pid = %u\n", daemon_pid);
 		return STATUS_UNSUCCESSFUL;
+	}
+
+	daemon_pid = (unsigned long)PsGetCurrentProcessId();
+	if (daemon_pid == 0) {
+		DbgPrint("Opps! PsGetCurrentProcessId() = 0\n");
+		retval = STATUS_UNSUCCESSFUL;
+		goto out0;
 	}
 
 	retval = event_buffer_init();
@@ -148,7 +158,6 @@ static NTSTATUS enable (void)
 	if (retval != STATUS_SUCCESS)
 		goto out3;
 
-	enabled = 1;
 	return STATUS_SUCCESS;
 
 out3:
@@ -158,13 +167,14 @@ out2:
 out1:
 	event_buffer_fini();
 out0:
+	daemon_pid = 0;
 	return retval;
 }
 
 static void disable (void)
 {
-	if (!enabled) {
-		DbgPrint("Opps! calling disable() while !enabled\n");
+	if (!daemon_pid) {
+		DbgPrint("Opps! calling disable() while daemon_pid = 0\n");
 		return;
 	}
 
@@ -173,13 +183,13 @@ static void disable (void)
 	file_fini();
 	event_buffer_fini();
 
-	enabled = 0;
+	daemon_pid = 0;
 }
 
 static NTSTATUS dispatch_create (PDEVICE_OBJECT DeviceObject, PIRP irp)
 {
 	DbgPrint("resmon: IRP_MJ_CREATE\n");
-	if (enabled) {
+	if (daemon_pid) {
 		irp->IoStatus.Information = 0;
 		irp->IoStatus.Status = STATUS_UNSUCCESSFUL;
 		IoCompleteRequest(irp, IO_NO_INCREMENT);
@@ -203,7 +213,7 @@ static NTSTATUS dispatch_create (PDEVICE_OBJECT DeviceObject, PIRP irp)
 static NTSTATUS dispatch_close (PDEVICE_OBJECT DeviceObject, PIRP irp)
 {
 	DbgPrint("resmon: IRP_MJ_CLOSE\n");
-	if (!enabled) {
+	if (!daemon_pid) {
 		DbgPrint("opps! close without open?\n");
 		irp->IoStatus.Information = 0;
 		irp->IoStatus.Status = STATUS_SUCCESS;
@@ -222,8 +232,8 @@ static NTSTATUS dispatch_ioctl (PDEVICE_OBJECT DeviceObject, PIRP irp)
 {
 	PIO_STACK_LOCATION irp_stack;
 
-	if (!enabled) {
-		DbgPrint("opps! calling dispatch_ioctl when !enabled?\n");
+	if (!daemon_pid) {
+		DbgPrint("opps! calling dispatch_ioctl when daemon_pid = 0?\n");
 		irp->IoStatus.Information = 0;
 		irp->IoStatus.Status = STATUS_SUCCESS;
 		IoCompleteRequest(irp, IO_NO_INCREMENT);
@@ -277,7 +287,7 @@ static void DriverUnload (PDRIVER_OBJECT DriverObject)
 {
 	UNICODE_STRING str;
 
-	if (enabled)
+	if (daemon_pid)
 		disable();
 
 	RtlInitUnicodeString(&str, L"\\DosDevices\\resmon");
