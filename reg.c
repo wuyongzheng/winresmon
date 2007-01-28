@@ -1,3 +1,4 @@
+#include <ntifs.h>
 #include <ntddk.h>
 #include "resmonk.h"
 
@@ -51,13 +52,6 @@ static const int num_CreateKey = 41;
 static NTSTATUS (*stock_CreateKey) (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes, ULONG TitleIndex, PUNICODE_STRING Class OPTIONAL, ULONG CreateOptions, PULONG Disposition OPTIONAL);
 static NTSTATUS resmon_CreateKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes, ULONG TitleIndex, PUNICODE_STRING Class OPTIONAL, ULONG CreateOptions, PULONG Disposition OPTIONAL)
 {
-	if (ObjectAttributes != NULL &&
-			ObjectAttributes->ObjectName != NULL &&
-			ObjectAttributes->ObjectName->Buffer != NULL) {
-		DbgPrint("NtCreateKey %u \"%S\"\n", PsGetCurrentProcessId(), ObjectAttributes->ObjectName->Buffer);
-	} else {
-		DbgPrint("NtCreateKey %u null\n", PsGetCurrentProcessId());
-	}
 	return (*stock_CreateKey)(KeyHandle, DesiredAccess, ObjectAttributes, TitleIndex, Class, CreateOptions, Disposition);
 }
 
@@ -81,13 +75,29 @@ static const int num_OpenKey = 119;
 static NTSTATUS (*stock_OpenKey) (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes);
 static NTSTATUS resmon_OpenKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes)
 {
-	if (ObjectAttributes != NULL &&
-			ObjectAttributes->ObjectName != NULL &&
-			ObjectAttributes->ObjectName->Buffer != NULL)
-		DbgPrint("NtOpenKey %u \"%S\"\n", PsGetCurrentProcessId(), ObjectAttributes->ObjectName->Buffer);
-	else
-		DbgPrint("NtCreateKey %u null\n", PsGetCurrentProcessId());
-	return (*stock_OpenKey)(KeyHandle, DesiredAccess, ObjectAttributes);
+	NTSTATUS retval;
+	void *object_body;
+	char object_namei[1024];
+	int ret_length;
+
+	retval = (*stock_OpenKey)(KeyHandle, DesiredAccess, ObjectAttributes);
+
+	if (retval != STATUS_SUCCESS)
+		return retval;
+
+	if (ObReferenceObjectByHandle(*KeyHandle, KEY_ALL_ACCESS, NULL, KernelMode, &object_body, NULL) != STATUS_SUCCESS)
+		return retval;
+
+	if (ObQueryNameString(object_body, (POBJECT_NAME_INFORMATION)object_namei, sizeof(object_namei), &ret_length) != STATUS_SUCCESS) {
+		DbgPrint("ObQueryNameString() failed\n");
+		ObDereferenceObject(object_body);
+		return retval;
+	}
+
+	DbgPrint("%S\n", ((POBJECT_NAME_INFORMATION)object_namei)->Name.Buffer);
+
+	ObDereferenceObject(object_body);
+	return retval;
 }
 
 static const int num_QueryKey = 160;
