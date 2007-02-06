@@ -4,8 +4,20 @@
 #include <ntddk.h> 
 #include "kucomm.h"
 
+struct htable_entry {
+	LIST_ENTRY lru;
+	struct htable_entry *next; // for hashtable and free_pool
+	unsigned long pid;
+	HANDLE handle;
+	int name_length;
+	short name [MAX_PATH_SIZE];
+};
+
 extern DRIVER_OBJECT *driver_object;
 extern unsigned long daemon_pid;
+
+NTSTATUS handle_table_init (void);
+void handle_table_fini (void);
 
 struct event *event_buffer_start_add (void);
 void event_buffer_finish_add (void);

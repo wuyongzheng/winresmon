@@ -18,31 +18,36 @@ static NTSTATUS enable (void)
 	if (daemon_pid == 0) {
 		DbgPrint("Opps! PsGetCurrentProcessId() = 0\n");
 		retval = STATUS_UNSUCCESSFUL;
-		goto out0;
+		goto out1;
 	}
 
-	retval = event_buffer_init();
-	if (retval != STATUS_SUCCESS)
-		goto out0;
-	retval = file_init();
+	retval = handle_table_init();
 	if (retval != STATUS_SUCCESS)
 		goto out1;
-	retval = reg_init();
+	retval = event_buffer_init();
 	if (retval != STATUS_SUCCESS)
 		goto out2;
-	retval = proc_init();
+	retval = file_init();
 	if (retval != STATUS_SUCCESS)
 		goto out3;
+	retval = reg_init();
+	if (retval != STATUS_SUCCESS)
+		goto out4;
+	retval = proc_init();
+	if (retval != STATUS_SUCCESS)
+		goto out5;
 
 	return STATUS_SUCCESS;
 
-out3:
+out5:
 	reg_fini();
-out2:
+out4:
 	file_fini();
-out1:
+out3:
 	event_buffer_fini();
-out0:
+out2:
+	handle_table_fini();
+out1:
 	daemon_pid = 0;
 	return retval;
 }
@@ -58,6 +63,7 @@ static void disable (void)
 	reg_fini();
 	file_fini();
 	event_buffer_fini();
+	handle_table_fini();
 
 	daemon_pid = 0;
 }

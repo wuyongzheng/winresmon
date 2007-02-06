@@ -5,4 +5,4 @@ MSC_WARNING_LEVEL=/W3
 
 TARGETLIBS = $(TARGETLIBS) $(IFSKIT_LIB_PATH)\fltMgr.lib
 
-SOURCES    = eventk.c reg.c proc.c file.c resmonk.c
+SOURCES    = htable.c eventk.c reg.c proc.c file.c resmonk.c
