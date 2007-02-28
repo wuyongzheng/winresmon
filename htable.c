@@ -30,6 +30,7 @@ struct htable_entry *htable_allocate_entry (void)
 		unsigned int hashval;
 		// remove from LRU
 		RemoveEntryList(&retval->lru);
+		lru_size --;
 		// remove from hashtable
 		hashval = HASH_HANDLE(retval->pid, retval->handle);
 		entry = hashtable[hashval];
@@ -48,11 +49,15 @@ struct htable_entry *htable_allocate_entry (void)
 	}
 	ExReleaseFastMutex(&mutex);
 
+	retval->name_length = 0;
 	return retval;
 }
 
 void htable_free_entry (struct htable_entry *entry)
 {
+	ASSERT(entry);
+	ASSERT(!entry->name_length);
+
 	ExAcquireFastMutex(&mutex);
 	if (free_pool_size >= FREE_POOL_SIZE) {
 		ExFreePoolWithTag(entry, TAG);
@@ -60,6 +65,156 @@ void htable_free_entry (struct htable_entry *entry)
 		entry->next = free_pool;
 		free_pool = entry;
 		free_pool_size ++;
+	}
+	ExReleaseFastMutex(&mutex);
+}
+
+void htable_add_entry (struct htable_entry *entry)
+{
+	unsigned int hashval;
+	struct htable_entry *curr;
+
+	ASSERT(entry);
+	ASSERT(entry->pid);
+	ASSERT(entry->handle);
+	ASSERT(entry->name_length);
+
+	hashval = HASH_HANDLE(entry->pid, entry->handle);
+
+	ExAcquireFastMutex(&mutex);
+	// add to LRU
+	InsertHeadList(&lru_head, &entry->lru);
+	lru_size ++;
+	// remove duplicate key if exists
+	curr = hashtable[hashval];
+	if (curr != NULL) {
+		if (curr->pid == entry->pid && curr->handle == entry->handle) {
+			RemoveEntryList(&curr->lru);
+			lru_size --;
+			hashtable[hashval] = curr->next;
+	
+			if (free_pool_size >= FREE_POOL_SIZE) {
+				ExFreePoolWithTag(curr, TAG);
+			} else {
+				curr->next = free_pool;
+				free_pool = curr;
+				free_pool_size ++;
+			}
+		} else {
+			while (curr->next != NULL && (curr->next->pid != entry->pid || curr->next->handle != entry->handle))
+				curr = curr->next;
+			if (curr->next != NULL) {
+				struct htable_entry *tofree = curr->next;
+				RemoveEntryList(&tofree->lru);
+				lru_size --;
+				curr->next = tofree->next;
+
+				if (free_pool_size >= FREE_POOL_SIZE) {
+					ExFreePoolWithTag(tofree, TAG);
+				} else {
+					tofree->next = free_pool;
+					free_pool = tofree;
+					free_pool_size ++;
+				}
+			}
+		}
+	}
+	// add the entry
+	entry->next = hashtable[hashval];
+	hashtable[hashval] = entry;
+	ExReleaseFastMutex(&mutex);
+}
+
+struct htable_entry *htable_get_entry (unsigned long pid, HANDLE handle)
+{
+	struct htable_entry *entry;
+
+	ExAcquireFastMutex(&mutex);
+	entry = hashtable[HASH_HANDLE(pid, handle)];
+	while (entry != NULL && (entry->pid != pid || entry->handle != handle))
+		entry = entry->next;
+	if (entry != NULL) {
+		RemoveEntryList(&entry->lru);
+		InsertHeadList(&lru_head, &entry->lru);
+	}
+	ExReleaseFastMutex(&mutex);
+
+	return entry;
+}
+
+void htable_remove_entry (struct htable_entry *entry)
+{
+	struct htable_entry *curr;
+	unsigned int hashval;
+
+	ASSERT(entry);
+	ASSERT(entry->pid);
+	ASSERT(entry->handle);
+	ASSERT(entry->name_length);
+
+	hashval = HASH_HANDLE(entry->pid, entry->handle);
+
+	ExAcquireFastMutex(&mutex);
+	// remove from LRU
+	RemoveEntryList(&entry->lru);
+	lru_size --;
+	// remove from hashtable
+	curr = hashtable[hashval];
+	ASSERT(curr);
+	if (curr->next == NULL) {
+		ASSERT(curr == entry);
+		hashtable[hashval] = NULL;
+	} else {
+		while (curr->next != NULL && curr->next != entry)
+			curr = curr->next;
+		ASSERT(curr->next == entry);
+		curr->next = entry->next;
+	}
+	ExReleaseFastMutex(&mutex);
+
+	entry->name_length = 0;
+}
+
+void htable_remove_process_entries (unsigned long pid)
+{
+	unsigned int hashval;
+
+	ExAcquireFastMutex(&mutex);
+	for (hashval = 0; hashval < HASHTABLE_SIZE; hashval ++) {
+		struct htable_entry *entry = hashtable[hashval];
+		while (entry != NULL && entry->pid == pid) {
+			RemoveEntryList(&entry->lru);
+			lru_size --;
+			hashtable[hashval] = entry->next;
+			if (free_pool_size >= FREE_POOL_SIZE) {
+				ExFreePoolWithTag(entry, TAG);
+			} else {
+				entry->next = free_pool;
+				free_pool = entry;
+				free_pool_size ++;
+			}
+			entry = hashtable[hashval];
+		}
+		if (entry == NULL)
+			continue;
+		while (entry->next != NULL) {
+			if (entry->next->pid == pid) {
+				struct htable_entry *tofree = entry->next;
+				RemoveEntryList(&tofree->lru);
+				lru_size --;
+				entry->next = tofree->next;
+
+				if (free_pool_size >= FREE_POOL_SIZE) {
+					ExFreePoolWithTag(tofree, TAG);
+				} else {
+					tofree->next = free_pool;
+					free_pool = tofree;
+					free_pool_size ++;
+				}
+			} else {
+				entry = entry->next;
+			}
+		}
 	}
 	ExReleaseFastMutex(&mutex);
 }

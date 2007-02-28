@@ -16,6 +16,12 @@ struct htable_entry {
 extern DRIVER_OBJECT *driver_object;
 extern unsigned long daemon_pid;
 
+struct htable_entry *htable_allocate_entry (void);
+void htable_free_entry (struct htable_entry *entry);
+void htable_add_entry (struct htable_entry *entry);
+struct htable_entry *htable_get_entry (unsigned long pid, HANDLE handle);
+void htable_remove_entry (struct htable_entry *entry);
+void htable_remove_process_entries (unsigned long pid);
 NTSTATUS handle_table_init (void);
 void handle_table_fini (void);
 
