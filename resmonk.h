@@ -9,7 +9,7 @@ struct htable_entry {
 	struct htable_entry *next; // for hashtable and free_pool
 	unsigned long pid;
 	HANDLE handle;
-	int name_length;
+	int name_length; // = 0 when not added, != 0 when added
 	short name [MAX_PATH_SIZE];
 };
 
