@@ -5,64 +5,46 @@
 
 void process_event (const struct event *event)
 {
+	if (event->type == ET_IGNORE)
+		return;
+
+	printf("%u %I64u %5d %5d ", event->serial, event->time.QuadPart, event->pid, event->tid);
+
 	switch (event->type) {
-	case ET_IGNORE:
-		break;
 	case ET_FILE_CREATE:
-		printf("%u %I64u %5d %5d create: %x \"%S\"\n",
-				event->serial, event->time.QuadPart, event->pid, event->tid,
+		printf("create: access=%x share=%x attr=%x cd=%x co=%x %x \"%S\"\n",
+				event->file_create.desired_access, event->file_create.share_mode, event->file_create.attributes, event->file_create.creation_disposition, event->file_create.create_options,
 				event->status, event->path);
 		break;
 	case ET_FILE_CLOSE:
-		printf("%u %I64u %5d %5d close: \"%S\"\n",
-				event->serial, event->time.QuadPart, event->pid, event->tid,
-				event->path);
+		printf("close: \"%S\"\n", event->path);
 		break;
 	case ET_FILE_READ:
-		printf("%u %I64u %5d %5d read: %x \"%S\"\n",
-				event->serial, event->time.QuadPart, event->pid, event->tid,
-				event->status, event->path);
+		printf("read: %I64u+%lu %x \"%S\"\n", event->file_rw.offset.QuadPart, event->file_rw.length, event->status, event->path);
 		break;
 	case ET_FILE_WRITE:
-		printf("%u %I64u %5d %5d write: %x \"%S\"\n",
-				event->serial, event->time.QuadPart, event->pid, event->tid,
-				event->status, event->path);
+		printf("write: %I64u+%lu %x \"%S\"\n", event->file_rw.offset.QuadPart, event->file_rw.length, event->status, event->path);
 		break;
 	case ET_FILE_CREATE_MAILSLOT:
-		printf("%u %I64u %5d %5d mslot: %x \"%S\"\n",
-				event->serial, event->time.QuadPart, event->pid, event->tid,
-				event->status, event->path);
+		printf("mslot: %x \"%S\"\n", event->status, event->path);
 		break;
 	case ET_FILE_CREATE_NAMED_PIPE:
-		printf("%u %I64u %5d %5d pipe: %x \"%S\"\n",
-				event->serial, event->time.QuadPart, event->pid, event->tid,
-				event->status, event->path);
+		printf("pipe: %x \"%S\"\n", event->status, event->path);
 		break;
 	case ET_PROC_PROC_CREATE:
-		printf("%u %I64u %5d %5d proc_create: ppid=%d, pid=%d\n",
-				event->serial, event->time.QuadPart, event->pid, event->tid,
-				event->proc_proc_create.ppid, event->proc_proc_create.pid);
+		printf("proc_create: ppid=%d, pid=%d\n", event->proc_proc_create.ppid, event->proc_proc_create.pid);
 		break;
 	case ET_PROC_PROC_TERM:
-		printf("%u %I64u %5d %5d proc_term: ppid=%d, pid=%d\n",
-				event->serial, event->time.QuadPart, event->pid, event->tid,
-				event->proc_proc_term.ppid, event->proc_proc_term.pid);
+		printf("proc_term: ppid=%d, pid=%d\n", event->proc_proc_term.ppid, event->proc_proc_term.pid);
 		break;
 	case ET_PROC_THREAD_CREATE:
-		printf("%u %I64u %5d %5d thread_create: tid=%d\n",
-				event->serial, event->time.QuadPart, event->pid, event->tid,
-				event->proc_thread_create.tid);
+		printf("thread_create: tid=%d\n", event->proc_thread_create.tid);
 		break;
 	case ET_PROC_THREAD_TERM:
-		printf("%u %I64u %5d %5d thread_term: tid=%d\n",
-				event->serial, event->time.QuadPart, event->pid, event->tid,
-				event->proc_thread_create.tid);
+		printf("thread_term: tid=%d\n", event->proc_thread_create.tid);
 		break;
 	case ET_PROC_IMAGE:
-		printf("%u %I64u %5d %5d image: %d %08x %d \"%S\"\n",
-				event->serial, event->time.QuadPart, event->pid, event->tid,
-				event->proc_image.system, event->proc_image.base, event->proc_image.size,
-				event->path);
+		printf("image: %d %08x %d \"%S\"\n", event->proc_image.system, event->proc_image.base, event->proc_image.size, event->path);
 		break;
 	default:
 		printf("unknown event\n");
