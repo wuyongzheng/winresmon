@@ -21,6 +21,9 @@ static void proc_notify_process (HANDLE ppid, HANDLE pid, BOOLEAN create)
 		event->proc_proc_create.pid = pid;
 	}
 	event_buffer_finish_add();
+
+	if (!create)
+		htable_remove_process_entries((unsigned long)pid);
 }
 
 static void proc_notify_thread (HANDLE pid, HANDLE tid, BOOLEAN create)
