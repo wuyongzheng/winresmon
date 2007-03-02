@@ -154,8 +154,11 @@ void htable_remove_entry (struct htable_entry *entry)
 		ASSERT(curr == entry);
 		hashtable[hashval] = NULL;
 	} else {
-		while (curr->next != NULL && curr->next != entry)
+		DbgPrint("hashval=%d, entry=%x, entry->pid=%x, entry->handle=%x\n", hashval, entry, entry->pid, entry->handle);
+		while (curr->next != NULL && curr->next != entry) {
+			DbgPrint("curr->next=%x, curr->next->pid=%x, curr->next->handle=%x\n", curr->next, curr->next->pid, curr->next->handle);
 			curr = curr->next;
+		}
 		ASSERT(curr->next != NULL);
 		curr->next = entry->next;
 	}

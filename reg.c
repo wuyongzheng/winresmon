@@ -47,6 +47,28 @@ extern PKSERVICE_TABLE_DESCRIPTOR KeServiceDescriptorTable;
 
 static const int num_Close = 25;
 static NTSTATUS (*stock_Close) (HANDLE Handle);
+static NTSTATUS resmon_Close   (HANDLE Handle)
+{
+	NTSTATUS retval = (*stock_Close)(Handle);
+	struct htable_entry *ht_entry = htable_get_entry((unsigned long)PsGetCurrentProcessId(), Handle);
+
+	if (ht_entry != NULL) {
+		struct event *event = event_buffer_start_add();
+		if (event != NULL) {
+			event->type = ET_REG_CLOSE;
+			event->status = retval;
+			event->reg_close.handle = Handle;
+			event->path_length = MAX_PATH_SIZE - 1 < ht_entry->name_length ? MAX_PATH_SIZE - 1 : ht_entry->name_length;
+			RtlCopyMemory(event->path, ht_entry->name, event->path_length * 2 + 2);
+			event_buffer_finish_add();
+		}
+		DbgPrint("NtClose(%x, %x)\n", PsGetCurrentProcessId(), Handle);
+		htable_remove_entry(ht_entry);
+		htable_free_entry(ht_entry);
+	}
+
+	return retval;
+}
 
 static const int num_CreateKey = 41;
 static NTSTATUS (*stock_CreateKey) (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes, ULONG TitleIndex, PUNICODE_STRING Class OPTIONAL, ULONG CreateOptions, PULONG Disposition OPTIONAL);
@@ -76,27 +98,105 @@ static NTSTATUS (*stock_OpenKey) (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, 
 static NTSTATUS resmon_OpenKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes)
 {
 	NTSTATUS retval;
-	void *object_body;
-	char object_namei[1024];
-	int ret_length;
 
 	retval = (*stock_OpenKey)(KeyHandle, DesiredAccess, ObjectAttributes);
 
-	if (retval != STATUS_SUCCESS)
-		return retval;
+	if (ObjectAttributes->RootDirectory == NULL) {
+		struct event *event = event_buffer_start_add();
+		DbgPrint("OpenKey1(%x, %S) = %x(%x)\n", ObjectAttributes->RootDirectory, ObjectAttributes->ObjectName->Buffer, *KeyHandle, retval);
+		if (event != NULL) {
+			event->type = ET_REG_OPEN;
+			event->status = retval;
+			event->reg_open.handle = *KeyHandle;
+			event->reg_open.desired_access = DesiredAccess;
+			event->path_length = MAX_PATH_SIZE - 1 < ObjectAttributes->ObjectName->Length / 2 ? MAX_PATH_SIZE - 1 : ObjectAttributes->ObjectName->Length / 2;
+			RtlCopyMemory(event->path, ObjectAttributes->ObjectName->Buffer, event->path_length * 2);
+			event->path[event->path_length] = 0;
+		}
+		if (retval == STATUS_SUCCESS) {
+			struct htable_entry *htable_entry = htable_allocate_entry();
+			if (htable_entry != NULL) {
+				htable_entry->pid = (unsigned long)PsGetCurrentProcessId();
+				htable_entry->handle = *KeyHandle;
+				htable_entry->name_length = event->path_length;
+				RtlCopyMemory(htable_entry->name, event->path, htable_entry->name_length * 2 + 2);
+				htable_add_entry(htable_entry);
+			}
+		}
+		if (event != NULL)
+			event_buffer_finish_add();
+	} else {
+		struct htable_entry *htable_entry;
 
-	if (ObReferenceObjectByHandle(*KeyHandle, KEY_ALL_ACCESS, NULL, KernelMode, &object_body, NULL) != STATUS_SUCCESS)
-		return retval;
+		htable_entry = htable_get_entry((unsigned long)PsGetCurrentProcessId(), ObjectAttributes->RootDirectory);
+		if (htable_entry != NULL) {
+			struct event *event = event_buffer_start_add();
+			DbgPrint("OpenKey2(%x, %S) = %x(%x)\n", ObjectAttributes->RootDirectory, ObjectAttributes->ObjectName->Buffer, *KeyHandle, retval);
+			if (event != NULL) {
+				event->type = ET_REG_OPEN;
+				event->status = retval;
+				event->reg_open.handle = *KeyHandle;
+				event->reg_open.desired_access = DesiredAccess;
+				event->path_length = htable_entry->name_length + ObjectAttributes->ObjectName->Length / 2;
+				if (event->path_length >= MAX_PATH_SIZE)
+					event->path_length = MAX_PATH_SIZE - 1;
+				RtlCopyMemory(event->path, htable_entry->name, htable_entry->name_length * 2);
+				if (event->path_length - htable_entry->name_length > 0)
+					RtlCopyMemory(event->path + htable_entry->name_length, ObjectAttributes->ObjectName->Buffer, (event->path_length - htable_entry->name_length) * 2);
+				event->path[event->path_length] = 0;
+			}
+			if (retval == STATUS_SUCCESS) {
+				htable_entry = htable_allocate_entry();
+				if (htable_entry != NULL) {
+					htable_entry->pid = (unsigned long)PsGetCurrentProcessId();
+					htable_entry->handle = *KeyHandle;
+					htable_entry->name_length = event->path_length;
+					RtlCopyMemory(htable_entry->name, event->path, htable_entry->name_length * 2 + 2);
+					htable_add_entry(htable_entry);
+				}
+			}
+			if (event != NULL)
+				event_buffer_finish_add();
+		} else {
+			if (retval == STATUS_SUCCESS) {
+				void *object_body;
+				char object_namei[1024];
+				int ret_length;
 
-	if (ObQueryNameString(object_body, (POBJECT_NAME_INFORMATION)object_namei, sizeof(object_namei), &ret_length) != STATUS_SUCCESS) {
-		DbgPrint("ObQueryNameString() failed\n");
-		ObDereferenceObject(object_body);
-		return retval;
+				DbgPrint("OpenKey3(%x, %S) = %x(%x)\n", ObjectAttributes->RootDirectory, ObjectAttributes->ObjectName->Buffer, *KeyHandle, retval);
+				if (ObReferenceObjectByHandle(*KeyHandle, KEY_ALL_ACCESS, NULL, KernelMode, &object_body, NULL) == STATUS_SUCCESS) {
+					if (ObQueryNameString(object_body, (POBJECT_NAME_INFORMATION)object_namei, sizeof(object_namei), &ret_length) == STATUS_SUCCESS) {
+						struct event *event = event_buffer_start_add();
+						struct htable_entry *htable_entry;
+
+						if (event != NULL) {
+							event->type = ET_REG_OPEN;
+							event->status = retval;
+							event->reg_open.handle = *KeyHandle;
+							event->reg_open.desired_access = DesiredAccess;
+							event->path_length = MAX_PATH_SIZE - 1 < ((POBJECT_NAME_INFORMATION)object_namei)->Name.Length / 2 ? MAX_PATH_SIZE - 1 : ((POBJECT_NAME_INFORMATION)object_namei)->Name.Length / 2;
+							RtlCopyMemory(event->path, ((POBJECT_NAME_INFORMATION)object_namei)->Name.Buffer, event->path_length * 2);
+							event->path[event->path_length] = 0;
+						}
+						htable_entry = htable_allocate_entry();
+						if (htable_entry != NULL) {
+							htable_entry->pid = (unsigned long)PsGetCurrentProcessId();
+							htable_entry->handle = *KeyHandle;
+							htable_entry->name_length = event->path_length;
+							RtlCopyMemory(htable_entry->name, event->path, htable_entry->name_length * 2 + 2);
+							htable_add_entry(htable_entry);
+						}
+						if (event != NULL)
+							event_buffer_finish_add();
+					}
+					ObDereferenceObject(object_body);
+				}
+			} else {
+				DbgPrint("OpenKey4(%x, %S) = %x(%x)\n", ObjectAttributes->RootDirectory, ObjectAttributes->ObjectName->Buffer, *KeyHandle, retval);
+			}
+		}
 	}
 
-	DbgPrint("%S\n", ((POBJECT_NAME_INFORMATION)object_namei)->Name.Buffer);
-
-	ObDereferenceObject(object_body);
 	return retval;
 }
 
@@ -121,6 +221,8 @@ NTSTATUS reg_init (void)
 		MOV    CR0, EAX        //write register back
 	}
 
+	stock_Close = entries[num_Close];
+	entries[num_Close] = resmon_Close;
 	stock_CreateKey = entries[num_CreateKey];
 	entries[num_CreateKey] = resmon_CreateKey;
 	stock_OpenKey = entries[num_OpenKey];
@@ -149,6 +251,7 @@ void reg_fini (void)
 		MOV    CR0, EAX        //write register back
 	}
 
+	entries[num_Close] = stock_Close;
 	entries[num_CreateKey] = stock_CreateKey;
 	entries[num_OpenKey] = stock_OpenKey;
 
