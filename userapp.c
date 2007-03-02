@@ -31,6 +31,12 @@ void process_event (const struct event *event)
 	case ET_FILE_CREATE_NAMED_PIPE:
 		printf("pipe: %x \"%S\"\n", event->status, event->path);
 		break;
+	case ET_REG_CLOSE:
+		printf("reg_close: %x %x \"%S\"\n", event->status, event->reg_close.handle, event->path);
+		break;
+	case ET_REG_OPEN:
+		printf("reg_open: %x %x %x \"%S\"\n", event->status, event->reg_open.handle, event->reg_open.desired_access, event->path);
+		break;
 	case ET_PROC_PROC_CREATE:
 		printf("proc_create: ppid=%d, pid=%d\n", event->proc_proc_create.ppid, event->proc_proc_create.pid);
 		break;

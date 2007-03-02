@@ -67,6 +67,13 @@ struct event {
 			unsigned long length;
 		} file_rw;
 		struct {
+			HANDLE handle;
+		} reg_close;
+		struct {
+			HANDLE handle;
+			ACCESS_MASK desired_access;
+		} reg_open;
+		struct {
 			HANDLE ppid;
 			HANDLE pid;
 		} proc_proc_create;
@@ -86,6 +93,7 @@ struct event {
 			unsigned int size;
 		} proc_image;
 	};
+	int path_length; // <= MAX_PATH_SIZE - 1
 	short path[MAX_PATH_SIZE]; // always '\0' terminated
 };
 
