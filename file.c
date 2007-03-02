@@ -8,7 +8,6 @@ static FLT_PREOP_CALLBACK_STATUS on_pre_op (PFLT_CALLBACK_DATA data, PCFLT_RELAT
 	NTSTATUS retval;
 	FLT_FILE_NAME_INFORMATION *name_info;
 	struct event *event;
-	int path_length;
 
 	if (KeGetCurrentIrql() > APC_LEVEL || fltobj->FileObject == NULL)
 		return FLT_PREOP_SUCCESS_NO_CALLBACK;
@@ -37,9 +36,9 @@ static FLT_PREOP_CALLBACK_STATUS on_pre_op (PFLT_CALLBACK_DATA data, PCFLT_RELAT
 		event->type = ET_FILE_CLOSE;
 	}
 	event->status = 0;
-	path_length = MAX_PATH_SIZE - 1 < name_info->Name.Length / 2 ? MAX_PATH_SIZE - 1 : name_info->Name.Length / 2;
-	RtlCopyMemory(event->path, name_info->Name.Buffer, path_length * 2);
-	event->path[path_length] = 0;
+	event->path_length = MAX_PATH_SIZE - 1 < name_info->Name.Length / 2 ? MAX_PATH_SIZE - 1 : name_info->Name.Length / 2;
+	RtlCopyMemory(event->path, name_info->Name.Buffer, event->path_length * 2);
+	event->path[event->path_length] = 0;
 	event_buffer_finish_add();
 
 	FltReleaseFileNameInformation(name_info);
@@ -51,7 +50,6 @@ static FLT_POSTOP_CALLBACK_STATUS on_post_op (PFLT_CALLBACK_DATA data, PCFLT_REL
 	NTSTATUS retval;
 	FLT_FILE_NAME_INFORMATION *name_info;
 	struct event *event;
-	int path_length;
 
 	if (KeGetCurrentIrql() > APC_LEVEL || fltobj->FileObject == NULL)
 		return FLT_POSTOP_FINISHED_PROCESSING;
@@ -101,9 +99,9 @@ static FLT_POSTOP_CALLBACK_STATUS on_post_op (PFLT_CALLBACK_DATA data, PCFLT_REL
 		event->type = ET_IGNORE;
 	}
 	event->status = data->IoStatus.Status;
-	path_length = MAX_PATH_SIZE - 1 < name_info->Name.Length / 2 ? MAX_PATH_SIZE - 1 : name_info->Name.Length / 2;
-	RtlCopyMemory(event->path, name_info->Name.Buffer, path_length * 2);
-	event->path[path_length] = 0;
+	event->path_length = MAX_PATH_SIZE - 1 < name_info->Name.Length / 2 ? MAX_PATH_SIZE - 1 : name_info->Name.Length / 2;
+	RtlCopyMemory(event->path, name_info->Name.Buffer, event->path_length * 2);
+	event->path[event->path_length] = 0;
 	event_buffer_finish_add();
 
 	FltReleaseFileNameInformation(name_info);
