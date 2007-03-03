@@ -150,15 +150,11 @@ void htable_remove_entry (struct htable_entry *entry)
 	// remove from hashtable
 	curr = hashtable[hashval];
 	ASSERT(curr);
-	if (curr->next == NULL) {
-		ASSERT(curr == entry);
-		hashtable[hashval] = NULL;
+	if (curr == entry) {
+		hashtable[hashval] = curr->next;
 	} else {
-		DbgPrint("hashval=%d, entry=%x, entry->pid=%x, entry->handle=%x\n", hashval, entry, entry->pid, entry->handle);
-		while (curr->next != NULL && curr->next != entry) {
-			DbgPrint("curr->next=%x, curr->next->pid=%x, curr->next->handle=%x\n", curr->next, curr->next->pid, curr->next->handle);
+		while (curr->next != NULL && curr->next != entry)
 			curr = curr->next;
-		}
 		ASSERT(curr->next != NULL);
 		curr->next = entry->next;
 	}
