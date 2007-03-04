@@ -103,7 +103,7 @@ static NTSTATUS resmon_OpenKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, 
 
 	if (ObjectAttributes->RootDirectory == NULL) {
 		struct event *event = event_buffer_start_add();
-		DbgPrint("OpenKey1(%x, %S) = %x(%x)\n", ObjectAttributes->RootDirectory, ObjectAttributes->ObjectName->Buffer, *KeyHandle, retval);
+		DbgPrint("OpenKey abs (%x, %S) = %x(%x)\n", ObjectAttributes->RootDirectory, ObjectAttributes->ObjectName->Buffer, *KeyHandle, retval);
 		if (event != NULL) {
 			event->type = ET_REG_OPEN;
 			event->status = retval;
@@ -112,87 +112,79 @@ static NTSTATUS resmon_OpenKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, 
 			event->path_length = MAX_PATH_SIZE - 1 < ObjectAttributes->ObjectName->Length / 2 ? MAX_PATH_SIZE - 1 : ObjectAttributes->ObjectName->Length / 2;
 			RtlCopyMemory(event->path, ObjectAttributes->ObjectName->Buffer, event->path_length * 2);
 			event->path[event->path_length] = 0;
+			event_buffer_finish_add();
 		}
 		if (retval == STATUS_SUCCESS) {
 			struct htable_entry *htable_entry = htable_allocate_entry();
-			if (htable_entry != NULL) {
-				htable_entry->pid = (unsigned long)PsGetCurrentProcessId();
-				htable_entry->handle = *KeyHandle;
-				htable_entry->name_length = event->path_length;
-				RtlCopyMemory(htable_entry->name, event->path, htable_entry->name_length * 2 + 2);
-				htable_add_entry(htable_entry);
-			}
+			htable_entry->pid = (unsigned long)PsGetCurrentProcessId();
+			htable_entry->handle = *KeyHandle;
+			htable_entry->name_length = MAX_PATH_SIZE - 1 < ObjectAttributes->ObjectName->Length / 2 ? MAX_PATH_SIZE - 1 : ObjectAttributes->ObjectName->Length / 2;
+			RtlCopyMemory(htable_entry->name, ObjectAttributes->ObjectName->Buffer, htable_entry->name_length * 2);
+			htable_entry->name[htable_entry->name_length] = 0;
+			htable_add_entry(htable_entry);
 		}
-		if (event != NULL)
-			event_buffer_finish_add();
 	} else {
-		struct htable_entry *htable_entry;
+		struct htable_entry *parent_entry = htable_get_entry((unsigned long)PsGetCurrentProcessId(), ObjectAttributes->RootDirectory);
 
-		htable_entry = htable_get_entry((unsigned long)PsGetCurrentProcessId(), ObjectAttributes->RootDirectory);
-		if (htable_entry != NULL) {
+		if (parent_entry == NULL) {
+			void *object_body;
+			char object_namei[1024];
+			int ret_length;
+			DbgPrint("OpenKey mis (%x, %S) = %x(%x)\n", ObjectAttributes->RootDirectory, ObjectAttributes->ObjectName->Buffer, *KeyHandle, retval);
+			if (ObReferenceObjectByHandle(ObjectAttributes->RootDirectory, KEY_ALL_ACCESS, NULL, KernelMode, &object_body, NULL) == STATUS_SUCCESS) {
+				if (ObQueryNameString(object_body, (POBJECT_NAME_INFORMATION)object_namei, sizeof(object_namei), &ret_length) == STATUS_SUCCESS) {
+					parent_entry = htable_allocate_entry();
+					parent_entry->pid = (unsigned long)PsGetCurrentProcessId();
+					parent_entry->handle = ObjectAttributes->RootDirectory;
+					parent_entry->name_length = MAX_PATH_SIZE - 1 < ((POBJECT_NAME_INFORMATION)object_namei)->Name.Length / 2 ? MAX_PATH_SIZE - 1 : ((POBJECT_NAME_INFORMATION)object_namei)->Name.Length / 2;
+					RtlCopyMemory(parent_entry->name, ((POBJECT_NAME_INFORMATION)object_namei)->Name.Buffer, parent_entry->name_length * 2);
+					parent_entry->name[parent_entry->name_length] = 0;
+					htable_add_entry(parent_entry);
+				}
+				ObDereferenceObject(object_body);
+			}
+		} else {
+			DbgPrint("OpenKey hit (%x, %S) = %x(%x)\n", ObjectAttributes->RootDirectory, ObjectAttributes->ObjectName->Buffer, *KeyHandle, retval);
+		}
+
+		if (parent_entry != NULL) {
 			struct event *event = event_buffer_start_add();
-			DbgPrint("OpenKey2(%x, %S) = %x(%x)\n", ObjectAttributes->RootDirectory, ObjectAttributes->ObjectName->Buffer, *KeyHandle, retval);
+			int length;
+
+			length = parent_entry->name_length + 1 + ObjectAttributes->ObjectName->Length / 2;
+			if (length >= MAX_PATH_SIZE)
+				length = MAX_PATH_SIZE - 1;
+
 			if (event != NULL) {
 				event->type = ET_REG_OPEN;
 				event->status = retval;
 				event->reg_open.handle = *KeyHandle;
 				event->reg_open.desired_access = DesiredAccess;
-				event->path_length = htable_entry->name_length + ObjectAttributes->ObjectName->Length / 2;
-				if (event->path_length >= MAX_PATH_SIZE)
-					event->path_length = MAX_PATH_SIZE - 1;
-				RtlCopyMemory(event->path, htable_entry->name, htable_entry->name_length * 2);
-				if (event->path_length - htable_entry->name_length > 0)
-					RtlCopyMemory(event->path + htable_entry->name_length, ObjectAttributes->ObjectName->Buffer, (event->path_length - htable_entry->name_length) * 2);
-				event->path[event->path_length] = 0;
+				event->path_length = length;
+				RtlCopyMemory(event->path, parent_entry->name, parent_entry->name_length * 2);
+				if (length > parent_entry->name_length)
+					event->path[parent_entry->name_length] = L'\\';
+				if (length - parent_entry->name_length - 1 > 0)
+					RtlCopyMemory(event->path + parent_entry->name_length + 1, ObjectAttributes->ObjectName->Buffer, (length - parent_entry->name_length - 1) * 2);
+				event->path[length] = 0;
+				event_buffer_finish_add();
 			}
 			if (retval == STATUS_SUCCESS) {
-				htable_entry = htable_allocate_entry();
-				if (htable_entry != NULL) {
-					htable_entry->pid = (unsigned long)PsGetCurrentProcessId();
-					htable_entry->handle = *KeyHandle;
-					htable_entry->name_length = event->path_length;
-					RtlCopyMemory(htable_entry->name, event->path, htable_entry->name_length * 2 + 2);
-					htable_add_entry(htable_entry);
-				}
+				struct htable_entry *new_entry = htable_allocate_entry();
+				new_entry->pid = (unsigned long)PsGetCurrentProcessId();
+				new_entry->handle = *KeyHandle;
+				new_entry->name_length = length;
+				RtlCopyMemory(new_entry->name, parent_entry->name, parent_entry->name_length * 2);
+				if (length > parent_entry->name_length)
+					new_entry->name[parent_entry->name_length] = L'\\';
+				if (length - parent_entry->name_length - 1 > 0)
+					RtlCopyMemory(new_entry->name + parent_entry->name_length + 1, ObjectAttributes->ObjectName->Buffer, (length - parent_entry->name_length - 1) * 2);
+				new_entry->name[length] = 0;
+				htable_add_entry(new_entry);
 			}
-			if (event != NULL)
-				event_buffer_finish_add();
 		} else {
 			if (retval == STATUS_SUCCESS) {
-				void *object_body;
-				char object_namei[1024];
-				int ret_length;
-
-				DbgPrint("OpenKey3(%x, %S) = %x(%x)\n", ObjectAttributes->RootDirectory, ObjectAttributes->ObjectName->Buffer, *KeyHandle, retval);
-				if (ObReferenceObjectByHandle(*KeyHandle, KEY_ALL_ACCESS, NULL, KernelMode, &object_body, NULL) == STATUS_SUCCESS) {
-					if (ObQueryNameString(object_body, (POBJECT_NAME_INFORMATION)object_namei, sizeof(object_namei), &ret_length) == STATUS_SUCCESS) {
-						struct event *event = event_buffer_start_add();
-						struct htable_entry *htable_entry;
-
-						if (event != NULL) {
-							event->type = ET_REG_OPEN;
-							event->status = retval;
-							event->reg_open.handle = *KeyHandle;
-							event->reg_open.desired_access = DesiredAccess;
-							event->path_length = MAX_PATH_SIZE - 1 < ((POBJECT_NAME_INFORMATION)object_namei)->Name.Length / 2 ? MAX_PATH_SIZE - 1 : ((POBJECT_NAME_INFORMATION)object_namei)->Name.Length / 2;
-							RtlCopyMemory(event->path, ((POBJECT_NAME_INFORMATION)object_namei)->Name.Buffer, event->path_length * 2);
-							event->path[event->path_length] = 0;
-						}
-						htable_entry = htable_allocate_entry();
-						if (htable_entry != NULL) {
-							htable_entry->pid = (unsigned long)PsGetCurrentProcessId();
-							htable_entry->handle = *KeyHandle;
-							htable_entry->name_length = event->path_length;
-							RtlCopyMemory(htable_entry->name, event->path, htable_entry->name_length * 2 + 2);
-							htable_add_entry(htable_entry);
-						}
-						if (event != NULL)
-							event_buffer_finish_add();
-					}
-					ObDereferenceObject(object_body);
-				}
-			} else {
-				DbgPrint("OpenKey4(%x, %S) = %x(%x)\n", ObjectAttributes->RootDirectory, ObjectAttributes->ObjectName->Buffer, *KeyHandle, retval);
+				DbgPrint("Opps! it should fail because I can't name the parent.\n");
 			}
 		}
 	}
