@@ -3,12 +3,14 @@
 #include <stdio.h>
 #include "kucomm.h"
 
+extern const char *get_ntstatus_name (long status);
+
 void process_event (const struct event *event)
 {
 	if (event->type == ET_IGNORE)
 		return;
 
-	printf("%u %I64u %5d %5d %x ", event->serial, event->time.QuadPart, event->pid, event->tid, event->status);
+	printf("%u %I64u %5d %5d %s ", event->serial, event->time.QuadPart, event->pid, event->tid, get_ntstatus_name(event->status));
 
 	switch (event->type) {
 	case ET_FILE_CREATE:
