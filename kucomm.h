@@ -71,6 +71,12 @@ struct event {
 		} reg_close;
 		struct {
 			HANDLE handle;
+			ACCESS_MASK desired_access; // e.g. KEY_QUERY_VALUE
+			unsigned long create_options; // e.g. REG_OPTION_VOLATILE
+			unsigned long creation_disposition; // e.g. e.g. REG_CREATED_NEW_KEY
+		} reg_create;
+		struct {
+			HANDLE handle;
 			ACCESS_MASK desired_access;
 		} reg_open;
 		struct {

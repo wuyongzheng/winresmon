@@ -79,7 +79,128 @@ static const int num_CreateKey = 41;
 static NTSTATUS (*stock_CreateKey) (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes, ULONG TitleIndex, PUNICODE_STRING Class OPTIONAL, ULONG CreateOptions, PULONG Disposition OPTIONAL);
 static NTSTATUS resmon_CreateKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes, ULONG TitleIndex, PUNICODE_STRING Class OPTIONAL, ULONG CreateOptions, PULONG Disposition OPTIONAL)
 {
-	return (*stock_CreateKey)(KeyHandle, DesiredAccess, ObjectAttributes, TitleIndex, Class, CreateOptions, Disposition);
+	NTSTATUS retval;
+
+	retval = (*stock_CreateKey)(KeyHandle, DesiredAccess, ObjectAttributes, TitleIndex, Class, CreateOptions, Disposition);
+
+	if (KeGetPreviousMode() == KernelMode)
+		return retval;
+
+	if (ObjectAttributes->RootDirectory == NULL) {
+		struct event *event = event_buffer_start_add();
+		DbgPrint("CreateKey abs (%x, %S) = %x(%x)\n", ObjectAttributes->RootDirectory, ObjectAttributes->ObjectName->Buffer, *KeyHandle, retval);
+		if (event != NULL) {
+			event->type = ET_REG_CREATE;
+			event->status = retval;
+			event->reg_create.handle = *KeyHandle;
+			event->reg_create.desired_access = DesiredAccess;
+			event->reg_create.create_options = CreateOptions;
+			event->reg_create.creation_disposition = (Disposition == NULL ? 0 : *Disposition);
+			event->path_length = MAX_PATH_SIZE - 1 < ObjectAttributes->ObjectName->Length / 2 ?
+				MAX_PATH_SIZE - 1 : ObjectAttributes->ObjectName->Length / 2;
+			RtlCopyMemory(event->path, ObjectAttributes->ObjectName->Buffer, event->path_length * 2);
+			event->path[event->path_length] = 0;
+			event_buffer_finish_add();
+		}
+		if (retval == STATUS_SUCCESS) {
+			struct htable_entry *htable_entry = htable_allocate_entry();
+			htable_entry->pid = (unsigned long)PsGetCurrentProcessId();
+			htable_entry->handle = *KeyHandle;
+			htable_entry->name_length = MAX_PATH_SIZE - 1 < ObjectAttributes->ObjectName->Length / 2 ?
+				MAX_PATH_SIZE - 1 : ObjectAttributes->ObjectName->Length / 2;
+			RtlCopyMemory(htable_entry->name,
+					ObjectAttributes->ObjectName->Buffer,
+					htable_entry->name_length * 2);
+			htable_entry->name[htable_entry->name_length] = 0;
+			htable_add_entry(htable_entry);
+		}
+	} else {
+		struct htable_entry *parent_entry = htable_get_entry(
+				(unsigned long)PsGetCurrentProcessId(),
+				ObjectAttributes->RootDirectory);
+
+		if (parent_entry == NULL) {
+			void *object_body;
+			char object_namei[1024];
+			int ret_length;
+			DbgPrint("CreateKey mis (%x, %S) = %x(%x)\n", ObjectAttributes->RootDirectory, ObjectAttributes->ObjectName->Buffer, *KeyHandle, retval);
+			if (ObReferenceObjectByHandle(ObjectAttributes->RootDirectory,
+						KEY_ALL_ACCESS,
+						NULL,
+						KernelMode,
+						&object_body,
+						NULL) == STATUS_SUCCESS) {
+				if (ObQueryNameString(object_body,
+							(POBJECT_NAME_INFORMATION)object_namei,
+							sizeof(object_namei),
+							&ret_length) == STATUS_SUCCESS) {
+					parent_entry = htable_allocate_entry();
+					parent_entry->pid = (unsigned long)PsGetCurrentProcessId();
+					parent_entry->handle = ObjectAttributes->RootDirectory;
+					parent_entry->name_length =
+						MAX_PATH_SIZE - 1 < ((POBJECT_NAME_INFORMATION)object_namei)->Name.Length / 2 ?
+						MAX_PATH_SIZE - 1 : ((POBJECT_NAME_INFORMATION)object_namei)->Name.Length / 2;
+					RtlCopyMemory(parent_entry->name,
+							((POBJECT_NAME_INFORMATION)object_namei)->Name.Buffer,
+							parent_entry->name_length * 2);
+					parent_entry->name[parent_entry->name_length] = 0;
+					htable_add_entry(parent_entry);
+				}
+				ObDereferenceObject(object_body);
+			}
+		} else {
+			DbgPrint("CreateKey hit (%x, %S) = %x(%x)\n", ObjectAttributes->RootDirectory, ObjectAttributes->ObjectName->Buffer, *KeyHandle, retval);
+		}
+
+		if (parent_entry != NULL) {
+			struct event *event = event_buffer_start_add();
+			int length;
+
+			length = parent_entry->name_length + 1 + ObjectAttributes->ObjectName->Length / 2;
+			if (length >= MAX_PATH_SIZE)
+				length = MAX_PATH_SIZE - 1;
+
+			if (event != NULL) {
+				event->type = ET_REG_CREATE;
+				event->status = retval;
+				event->reg_create.handle = *KeyHandle;
+				event->reg_create.desired_access = DesiredAccess;
+				event->reg_create.create_options = CreateOptions;
+				event->reg_create.creation_disposition = (Disposition == NULL ? 0 : *Disposition);
+				event->path_length = length;
+				RtlCopyMemory(event->path, parent_entry->name, parent_entry->name_length * 2);
+				if (length > parent_entry->name_length)
+					event->path[parent_entry->name_length] = L'\\';
+				if (length - parent_entry->name_length - 1 > 0)
+					RtlCopyMemory(event->path + parent_entry->name_length + 1,
+							ObjectAttributes->ObjectName->Buffer,
+							(length - parent_entry->name_length - 1) * 2);
+				event->path[length] = 0;
+				event_buffer_finish_add();
+			}
+			if (retval == STATUS_SUCCESS) {
+				struct htable_entry *new_entry = htable_allocate_entry();
+				new_entry->pid = (unsigned long)PsGetCurrentProcessId();
+				new_entry->handle = *KeyHandle;
+				new_entry->name_length = length;
+				RtlCopyMemory(new_entry->name, parent_entry->name, parent_entry->name_length * 2);
+				if (length > parent_entry->name_length)
+					new_entry->name[parent_entry->name_length] = L'\\';
+				if (length - parent_entry->name_length - 1 > 0)
+					RtlCopyMemory(new_entry->name + parent_entry->name_length + 1,
+							ObjectAttributes->ObjectName->Buffer,
+							(length - parent_entry->name_length - 1) * 2);
+				new_entry->name[length] = 0;
+				htable_add_entry(new_entry);
+			}
+		} else {
+			if (retval == STATUS_SUCCESS) {
+				DbgPrint("Opps! it should fail because I can't name the parent.\n");
+			}
+		}
+	}
+
+	return retval;
 }
 
 
@@ -117,7 +238,8 @@ static NTSTATUS resmon_OpenKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, 
 			event->status = retval;
 			event->reg_open.handle = *KeyHandle;
 			event->reg_open.desired_access = DesiredAccess;
-			event->path_length = MAX_PATH_SIZE - 1 < ObjectAttributes->ObjectName->Length / 2 ? MAX_PATH_SIZE - 1 : ObjectAttributes->ObjectName->Length / 2;
+			event->path_length = MAX_PATH_SIZE - 1 < ObjectAttributes->ObjectName->Length / 2 ?
+				MAX_PATH_SIZE - 1 : ObjectAttributes->ObjectName->Length / 2;
 			RtlCopyMemory(event->path, ObjectAttributes->ObjectName->Buffer, event->path_length * 2);
 			event->path[event->path_length] = 0;
 			event_buffer_finish_add();
@@ -126,26 +248,43 @@ static NTSTATUS resmon_OpenKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, 
 			struct htable_entry *htable_entry = htable_allocate_entry();
 			htable_entry->pid = (unsigned long)PsGetCurrentProcessId();
 			htable_entry->handle = *KeyHandle;
-			htable_entry->name_length = MAX_PATH_SIZE - 1 < ObjectAttributes->ObjectName->Length / 2 ? MAX_PATH_SIZE - 1 : ObjectAttributes->ObjectName->Length / 2;
-			RtlCopyMemory(htable_entry->name, ObjectAttributes->ObjectName->Buffer, htable_entry->name_length * 2);
+			htable_entry->name_length = MAX_PATH_SIZE - 1 < ObjectAttributes->ObjectName->Length / 2 ?
+				MAX_PATH_SIZE - 1 : ObjectAttributes->ObjectName->Length / 2;
+			RtlCopyMemory(htable_entry->name,
+					ObjectAttributes->ObjectName->Buffer,
+					htable_entry->name_length * 2);
 			htable_entry->name[htable_entry->name_length] = 0;
 			htable_add_entry(htable_entry);
 		}
 	} else {
-		struct htable_entry *parent_entry = htable_get_entry((unsigned long)PsGetCurrentProcessId(), ObjectAttributes->RootDirectory);
+		struct htable_entry *parent_entry = htable_get_entry(
+				(unsigned long)PsGetCurrentProcessId(),
+				ObjectAttributes->RootDirectory);
 
 		if (parent_entry == NULL) {
 			void *object_body;
 			char object_namei[1024];
 			int ret_length;
 			DbgPrint("OpenKey mis (%x, %S) = %x(%x)\n", ObjectAttributes->RootDirectory, ObjectAttributes->ObjectName->Buffer, *KeyHandle, retval);
-			if (ObReferenceObjectByHandle(ObjectAttributes->RootDirectory, KEY_ALL_ACCESS, NULL, KernelMode, &object_body, NULL) == STATUS_SUCCESS) {
-				if (ObQueryNameString(object_body, (POBJECT_NAME_INFORMATION)object_namei, sizeof(object_namei), &ret_length) == STATUS_SUCCESS) {
+			if (ObReferenceObjectByHandle(ObjectAttributes->RootDirectory,
+						KEY_ALL_ACCESS,
+						NULL,
+						KernelMode,
+						&object_body,
+						NULL) == STATUS_SUCCESS) {
+				if (ObQueryNameString(object_body,
+							(POBJECT_NAME_INFORMATION)object_namei,
+							sizeof(object_namei),
+							&ret_length) == STATUS_SUCCESS) {
 					parent_entry = htable_allocate_entry();
 					parent_entry->pid = (unsigned long)PsGetCurrentProcessId();
 					parent_entry->handle = ObjectAttributes->RootDirectory;
-					parent_entry->name_length = MAX_PATH_SIZE - 1 < ((POBJECT_NAME_INFORMATION)object_namei)->Name.Length / 2 ? MAX_PATH_SIZE - 1 : ((POBJECT_NAME_INFORMATION)object_namei)->Name.Length / 2;
-					RtlCopyMemory(parent_entry->name, ((POBJECT_NAME_INFORMATION)object_namei)->Name.Buffer, parent_entry->name_length * 2);
+					parent_entry->name_length =
+						MAX_PATH_SIZE - 1 < ((POBJECT_NAME_INFORMATION)object_namei)->Name.Length / 2 ?
+						MAX_PATH_SIZE - 1 : ((POBJECT_NAME_INFORMATION)object_namei)->Name.Length / 2;
+					RtlCopyMemory(parent_entry->name,
+							((POBJECT_NAME_INFORMATION)object_namei)->Name.Buffer,
+							parent_entry->name_length * 2);
 					parent_entry->name[parent_entry->name_length] = 0;
 					htable_add_entry(parent_entry);
 				}
@@ -173,7 +312,9 @@ static NTSTATUS resmon_OpenKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, 
 				if (length > parent_entry->name_length)
 					event->path[parent_entry->name_length] = L'\\';
 				if (length - parent_entry->name_length - 1 > 0)
-					RtlCopyMemory(event->path + parent_entry->name_length + 1, ObjectAttributes->ObjectName->Buffer, (length - parent_entry->name_length - 1) * 2);
+					RtlCopyMemory(event->path + parent_entry->name_length + 1,
+							ObjectAttributes->ObjectName->Buffer,
+							(length - parent_entry->name_length - 1) * 2);
 				event->path[length] = 0;
 				event_buffer_finish_add();
 			}
@@ -186,7 +327,9 @@ static NTSTATUS resmon_OpenKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, 
 				if (length > parent_entry->name_length)
 					new_entry->name[parent_entry->name_length] = L'\\';
 				if (length - parent_entry->name_length - 1 > 0)
-					RtlCopyMemory(new_entry->name + parent_entry->name_length + 1, ObjectAttributes->ObjectName->Buffer, (length - parent_entry->name_length - 1) * 2);
+					RtlCopyMemory(new_entry->name + parent_entry->name_length + 1,
+							ObjectAttributes->ObjectName->Buffer,
+							(length - parent_entry->name_length - 1) * 2);
 				new_entry->name[length] = 0;
 				htable_add_entry(new_entry);
 			}
