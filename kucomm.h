@@ -15,7 +15,8 @@
 #define IOCTL_REQUEST_SWAP \
 	CTL_CODE(FILE_DEVICE_RESMON, IOCTL_FUNC_SWAP, METHOD_NEITHER, FILE_ANY_ACCESS)
 
-#define MAX_PATH_SIZE 256
+#define MAX_PATH_SIZE 256 // number of unicode characters
+#define MAX_IO_SIZE 64    // number of bytes
 
 #define EVENT_BUFFER_SIZE 256
 #define EVENT_BUFFER_THRESHOLD (EVENT_BUFFER_SIZE*3/4)
@@ -65,6 +66,7 @@ struct event {
 		struct {
 			LARGE_INTEGER offset;
 			unsigned long length;
+			char data[MAX_IO_SIZE];
 		} file_rw;
 		struct {
 			HANDLE handle;
@@ -80,8 +82,17 @@ struct event {
 		} reg_delete;
 		struct {
 			HANDLE handle;
+		} reg_delete_value;
+		struct {
+			HANDLE handle;
 			ACCESS_MASK desired_access;
 		} reg_open;
+		struct {
+			HANDLE handle;
+			unsigned long value_type;
+			unsigned long value_length;
+			char value[MAX_IO_SIZE];
+		} reg_rw;
 		struct {
 			HANDLE ppid;
 			HANDLE pid;

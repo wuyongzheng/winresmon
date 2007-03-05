@@ -40,6 +40,9 @@ void process_event (const struct event *event)
 	case ET_REG_DELETE:
 		printf("reg_delete: %x %x \"%S\"\n", event->status, event->reg_delete.handle, event->path);
 		break;
+	case ET_REG_DELETEVALUE:
+		printf("reg_deletevalue: %x %x \"%S\"\n", event->status, event->reg_delete_value.handle, event->path);
+		break;
 	case ET_REG_OPEN:
 		printf("reg_open: %x %x %x \"%S\"\n", event->status, event->reg_open.handle, event->reg_open.desired_access, event->path);
 		break;

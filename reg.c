@@ -236,6 +236,79 @@ static NTSTATUS resmon_DeleteKey   (HANDLE KeyHandle)
 
 static const int num_DeleteValueKey = 65;
 static NTSTATUS (*stock_DeleteValueKey) (HANDLE KeyHandle, PUNICODE_STRING ValueName);
+static NTSTATUS resmon_DeleteValueKey   (HANDLE KeyHandle, PUNICODE_STRING ValueName)
+{
+	NTSTATUS retval;
+	struct htable_entry *parent_entry;
+
+	retval = (*stock_DeleteValueKey)(KeyHandle, ValueName);
+
+	if (KeGetPreviousMode() == KernelMode)
+		return retval;
+
+	parent_entry = htable_get_entry((unsigned long)PsGetCurrentProcessId(), KeyHandle);
+	if (parent_entry == NULL) {
+		void *object_body;
+		char object_namei[1024];
+		int ret_length;
+
+		DbgPrint("DeleteValueKey mis (%x, %S) = %x\n", KeyHandle, ValueName->Buffer, retval);
+		if (ObReferenceObjectByHandle(KeyHandle,
+					KEY_ALL_ACCESS,
+					NULL,
+					KernelMode,
+					&object_body,
+					NULL) == STATUS_SUCCESS) {
+			if (ObQueryNameString(object_body,
+						(POBJECT_NAME_INFORMATION)object_namei,
+						sizeof(object_namei),
+						&ret_length) == STATUS_SUCCESS) {
+				parent_entry = htable_allocate_entry();
+				parent_entry->pid = (unsigned long)PsGetCurrentProcessId();
+				parent_entry->handle = KeyHandle;
+				parent_entry->name_length =
+					MAX_PATH_SIZE - 1 < ((POBJECT_NAME_INFORMATION)object_namei)->Name.Length / 2 ?
+					MAX_PATH_SIZE - 1 : ((POBJECT_NAME_INFORMATION)object_namei)->Name.Length / 2;
+				RtlCopyMemory(parent_entry->name,
+						((POBJECT_NAME_INFORMATION)object_namei)->Name.Buffer,
+						parent_entry->name_length * 2);
+				parent_entry->name[parent_entry->name_length] = 0;
+				htable_add_entry(parent_entry);
+			}
+			ObDereferenceObject(object_body);
+		}
+	} else {
+		DbgPrint("DeleteValueKey hit (%x, %S) = %x\n", KeyHandle, ValueName->Buffer, retval);
+	}
+
+	if (parent_entry != NULL) {
+		struct event *event = event_buffer_start_add();
+
+		if (event != NULL) {
+			event->type = ET_REG_DELETEVALUE;
+			event->status = retval;
+			event->reg_delete_value.handle = KeyHandle;
+			event->path_length = parent_entry->name_length + 1 + ValueName->Length / 2;
+			if (event->path_length >= MAX_PATH_SIZE)
+				event->path_length = MAX_PATH_SIZE - 1;
+			RtlCopyMemory(event->path, parent_entry->name, parent_entry->name_length * 2);
+			if (event->path_length > parent_entry->name_length)
+				event->path[parent_entry->name_length] = L'\\';
+			if (event->path_length - parent_entry->name_length - 1 > 0)
+				RtlCopyMemory(event->path + parent_entry->name_length + 1,
+						ValueName->Buffer,
+						(event->path_length - parent_entry->name_length - 1) * 2);
+			event->path[event->path_length] = 0;
+			event_buffer_finish_add();
+		}
+	} else {
+		if (retval == STATUS_SUCCESS) {
+			DbgPrint("Opps! it should fail because I can't name the parent.\n");
+		}
+	}
+
+	return retval;
+}
 
 static const int num_EnumerateKey = 71;
 static NTSTATUS (*stock_EnumerateKey) (HANDLE KeyHandle, ULONG Index, KEY_INFORMATION_CLASS KeyInformationClass, PVOID KeyInformation, ULONG Length, PULONG ResultLength);
@@ -292,6 +365,7 @@ static NTSTATUS resmon_OpenKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, 
 			void *object_body;
 			char object_namei[1024];
 			int ret_length;
+
 			DbgPrint("OpenKey mis (%x, %S) = %x(%x)\n", ObjectAttributes->RootDirectory, ObjectAttributes->ObjectName->Buffer, *KeyHandle, retval);
 			if (ObReferenceObjectByHandle(ObjectAttributes->RootDirectory,
 						KEY_ALL_ACCESS,
@@ -397,6 +471,8 @@ NTSTATUS reg_init (void)
 	entries[num_CreateKey] = resmon_CreateKey;
 	stock_DeleteKey = entries[num_DeleteKey];
 	entries[num_DeleteKey] = resmon_DeleteKey;
+	stock_DeleteValueKey = entries[num_DeleteValueKey];
+	entries[num_DeleteValueKey] = resmon_DeleteValueKey;
 	stock_OpenKey = entries[num_OpenKey];
 	entries[num_OpenKey] = resmon_OpenKey;
 
@@ -426,6 +502,7 @@ void reg_fini (void)
 	entries[num_Close] = stock_Close;
 	entries[num_CreateKey] = stock_CreateKey;
 	entries[num_DeleteKey] = stock_DeleteKey;
+	entries[num_DeleteValueKey] = stock_DeleteValueKey;
 	entries[num_OpenKey] = stock_OpenKey;
 
 	_asm
