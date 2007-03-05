@@ -45,12 +45,17 @@ typedef struct _KSERVICE_TABLE_DESCRIPTOR {
 } KSERVICE_TABLE_DESCRIPTOR, *PKSERVICE_TABLE_DESCRIPTOR;
 extern PKSERVICE_TABLE_DESCRIPTOR KeServiceDescriptorTable;
 
+#define KeGetPreviousMode() (*((char *)KeGetCurrentThread() + 0x140))
+
 static const int num_Close = 25;
 static NTSTATUS (*stock_Close) (HANDLE Handle);
 static NTSTATUS resmon_Close   (HANDLE Handle)
 {
 	NTSTATUS retval = (*stock_Close)(Handle);
 	struct htable_entry *ht_entry = htable_get_entry((unsigned long)PsGetCurrentProcessId(), Handle);
+
+	if (KeGetPreviousMode() == KernelMode)
+		return retval;
 
 	if (ht_entry != NULL) {
 		struct event *event = event_buffer_start_add();
@@ -100,6 +105,9 @@ static NTSTATUS resmon_OpenKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, 
 	NTSTATUS retval;
 
 	retval = (*stock_OpenKey)(KeyHandle, DesiredAccess, ObjectAttributes);
+
+	if (KeGetPreviousMode() == KernelMode)
+		return retval;
 
 	if (ObjectAttributes->RootDirectory == NULL) {
 		struct event *event = event_buffer_start_add();
