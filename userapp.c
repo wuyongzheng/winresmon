@@ -64,6 +64,13 @@ int main (void)
 	HANDLE section;
 	struct event_buffer *event_buffer;
 
+	if(!SetPriorityClass(GetCurrentProcess(), ABOVE_NORMAL_PRIORITY_CLASS)) {
+		printf("SetPriorityClass(GetCurrentProcess(), ABOVE_NORMAL_PRIORITY_CLASS) failed. err=%d\n", GetLastError());
+	}
+	if(!SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL)) {
+		printf("SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL) failed. err=%d\n", GetLastError());
+	}
+
 	driver_file = CreateFile("\\\\.\\resmon",
 			GENERIC_READ | GENERIC_WRITE,
 			0, NULL, OPEN_EXISTING,
