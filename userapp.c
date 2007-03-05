@@ -97,14 +97,14 @@ int main (void)
 		struct event *events;
 		int i;
 
-		wait_status = WaitForSingleObject(ready_event, INFINITE);
+		// wait for at most 1 sec
+		wait_status = WaitForSingleObject(ready_event, 1000);
 		if (wait_status == WAIT_FAILED) {
 			printf("WaitForSingleObject() failed. err=%d\n", GetLastError());
 			return 1;
 		}
-		if (wait_status == WAIT_TIMEOUT || wait_status == WAIT_ABANDONED) {
-			printf("WaitForSingleObject() returns %s.\n",
-					wait_status == WAIT_TIMEOUT ? "WAIT_TIMEOUT" : "WAIT_ABANDONED");
+		if (wait_status == WAIT_ABANDONED) {
+			printf("WaitForSingleObject() returns WAIT_ABANDONED.\n");
 			return 1;
 		}
 
