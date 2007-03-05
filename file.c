@@ -17,7 +17,7 @@ static FLT_PREOP_CALLBACK_STATUS on_pre_op (PFLT_CALLBACK_DATA data, PCFLT_RELAT
 			FLT_FILE_NAME_NORMALIZED | FLT_FILE_NAME_QUERY_ALWAYS_ALLOW_CACHE_LOOKUP,
 			&name_info);
 	if (retval != STATUS_SUCCESS) {
-		DbgPrint("resmon+on_pre_op(%u): FltGetFileNameInformation failed: %x\n", data->Iopb->MajorFunction, retval);
+//		DbgPrint("resmon+on_pre_op(%u): FltGetFileNameInformation failed: %x\n", data->Iopb->MajorFunction, retval);
 		return FLT_PREOP_SUCCESS_NO_CALLBACK;
 	}
 
@@ -59,7 +59,7 @@ static FLT_POSTOP_CALLBACK_STATUS on_post_op (PFLT_CALLBACK_DATA data, PCFLT_REL
 			FLT_FILE_NAME_NORMALIZED | FLT_FILE_NAME_QUERY_ALWAYS_ALLOW_CACHE_LOOKUP,
 			&name_info);
 	if (retval != STATUS_SUCCESS) {
-		DbgPrint("resmon+on_post_op(%u): FltGetFileNameInformation failed: %x\n", data->Iopb->MajorFunction, retval);
+//		DbgPrint("resmon+on_post_op(%u): FltGetFileNameInformation failed: %x\n", data->Iopb->MajorFunction, retval);
 		return FLT_POSTOP_FINISHED_PROCESSING;
 	}
 
