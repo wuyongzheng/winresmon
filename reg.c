@@ -67,7 +67,7 @@ static NTSTATUS resmon_Close   (HANDLE Handle)
 			RtlCopyMemory(event->path, ht_entry->name, event->path_length * 2 + 2);
 			event_buffer_finish_add();
 		}
-		DbgPrint("NtClose(%x, %x)\n", PsGetCurrentProcessId(), Handle);
+//		DbgPrint("NtClose(%x, %x)\n", PsGetCurrentProcessId(), Handle);
 		htable_remove_entry(ht_entry);
 		htable_free_entry(ht_entry);
 	}
@@ -88,7 +88,7 @@ static NTSTATUS resmon_CreateKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess
 
 	if (ObjectAttributes->RootDirectory == NULL) {
 		struct event *event = event_buffer_start_add();
-		DbgPrint("CreateKey abs (%x, %S) = %x(%x)\n", ObjectAttributes->RootDirectory, ObjectAttributes->ObjectName->Buffer, *KeyHandle, retval);
+//		DbgPrint("CreateKey abs (%x, %S) = %x(%x)\n", ObjectAttributes->RootDirectory, ObjectAttributes->ObjectName->Buffer, *KeyHandle, retval);
 		if (event != NULL) {
 			event->type = ET_REG_CREATE;
 			event->status = retval;
@@ -123,7 +123,7 @@ static NTSTATUS resmon_CreateKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess
 			void *object_body;
 			char object_namei[1024];
 			int ret_length;
-			DbgPrint("CreateKey mis (%x, %S) = %x(%x)\n", ObjectAttributes->RootDirectory, ObjectAttributes->ObjectName->Buffer, *KeyHandle, retval);
+//			DbgPrint("CreateKey mis (%x, %S) = %x(%x)\n", ObjectAttributes->RootDirectory, ObjectAttributes->ObjectName->Buffer, *KeyHandle, retval);
 			if (ObReferenceObjectByHandle(ObjectAttributes->RootDirectory,
 						KEY_ALL_ACCESS,
 						NULL,
@@ -149,7 +149,7 @@ static NTSTATUS resmon_CreateKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess
 				ObDereferenceObject(object_body);
 			}
 		} else {
-			DbgPrint("CreateKey hit (%x, %S) = %x(%x)\n", ObjectAttributes->RootDirectory, ObjectAttributes->ObjectName->Buffer, *KeyHandle, retval);
+//			DbgPrint("CreateKey hit (%x, %S) = %x(%x)\n", ObjectAttributes->RootDirectory, ObjectAttributes->ObjectName->Buffer, *KeyHandle, retval);
 		}
 
 		if (parent_entry != NULL) {
@@ -195,7 +195,7 @@ static NTSTATUS resmon_CreateKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess
 			}
 		} else {
 			if (retval == STATUS_SUCCESS) {
-				DbgPrint("Opps! it should fail because I can't name the parent.\n");
+//				DbgPrint("Opps! it should fail because I can't name the parent.\n");
 			}
 		}
 	}
@@ -252,7 +252,7 @@ static NTSTATUS resmon_DeleteValueKey   (HANDLE KeyHandle, PUNICODE_STRING Value
 		char object_namei[1024];
 		int ret_length;
 
-		DbgPrint("DeleteValueKey mis (%x, %S) = %x\n", KeyHandle, ValueName->Buffer, retval);
+//		DbgPrint("DeleteValueKey mis (%x, %S) = %x\n", KeyHandle, ValueName->Buffer, retval);
 		if (ObReferenceObjectByHandle(KeyHandle,
 					KEY_ALL_ACCESS,
 					NULL,
@@ -278,7 +278,7 @@ static NTSTATUS resmon_DeleteValueKey   (HANDLE KeyHandle, PUNICODE_STRING Value
 			ObDereferenceObject(object_body);
 		}
 	} else {
-		DbgPrint("DeleteValueKey hit (%x, %S) = %x\n", KeyHandle, ValueName->Buffer, retval);
+//		DbgPrint("DeleteValueKey hit (%x, %S) = %x\n", KeyHandle, ValueName->Buffer, retval);
 	}
 
 	if (parent_entry != NULL) {
@@ -303,7 +303,7 @@ static NTSTATUS resmon_DeleteValueKey   (HANDLE KeyHandle, PUNICODE_STRING Value
 		}
 	} else {
 		if (retval == STATUS_SUCCESS) {
-			DbgPrint("Opps! it should fail because I can't name the parent.\n");
+//			DbgPrint("Opps! it should fail because I can't name the parent.\n");
 		}
 	}
 
@@ -332,7 +332,7 @@ static NTSTATUS resmon_OpenKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, 
 
 	if (ObjectAttributes->RootDirectory == NULL) {
 		struct event *event = event_buffer_start_add();
-		DbgPrint("OpenKey abs (%x, %S) = %x(%x)\n", ObjectAttributes->RootDirectory, ObjectAttributes->ObjectName->Buffer, *KeyHandle, retval);
+//		DbgPrint("OpenKey abs (%x, %S) = %x(%x)\n", ObjectAttributes->RootDirectory, ObjectAttributes->ObjectName->Buffer, *KeyHandle, retval);
 		if (event != NULL) {
 			event->type = ET_REG_OPEN;
 			event->status = retval;
@@ -366,7 +366,7 @@ static NTSTATUS resmon_OpenKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, 
 			char object_namei[1024];
 			int ret_length;
 
-			DbgPrint("OpenKey mis (%x, %S) = %x(%x)\n", ObjectAttributes->RootDirectory, ObjectAttributes->ObjectName->Buffer, *KeyHandle, retval);
+//			DbgPrint("OpenKey mis (%x, %S) = %x(%x)\n", ObjectAttributes->RootDirectory, ObjectAttributes->ObjectName->Buffer, *KeyHandle, retval);
 			if (ObReferenceObjectByHandle(ObjectAttributes->RootDirectory,
 						KEY_ALL_ACCESS,
 						NULL,
@@ -392,7 +392,7 @@ static NTSTATUS resmon_OpenKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, 
 				ObDereferenceObject(object_body);
 			}
 		} else {
-			DbgPrint("OpenKey hit (%x, %S) = %x(%x)\n", ObjectAttributes->RootDirectory, ObjectAttributes->ObjectName->Buffer, *KeyHandle, retval);
+//			DbgPrint("OpenKey hit (%x, %S) = %x(%x)\n", ObjectAttributes->RootDirectory, ObjectAttributes->ObjectName->Buffer, *KeyHandle, retval);
 		}
 
 		if (parent_entry != NULL) {
@@ -436,7 +436,7 @@ static NTSTATUS resmon_OpenKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, 
 			}
 		} else {
 			if (retval == STATUS_SUCCESS) {
-				DbgPrint("Opps! it should fail because I can't name the parent.\n");
+//				DbgPrint("Opps! it should fail because I can't name the parent.\n");
 			}
 		}
 	}
@@ -449,9 +449,191 @@ static NTSTATUS (*stock_QueryKey) (HANDLE KeyHandle, KEY_INFORMATION_CLASS KeyIn
 
 static const int num_QueryValueKey = 177;
 static NTSTATUS (*stock_QueryValueKey) (HANDLE KeyHandle, PUNICODE_STRING ValueName, KEY_VALUE_INFORMATION_CLASS KeyValueInformationClass, PVOID KeyValueInformation, ULONG Length, PULONG ResultLength);
+static NTSTATUS resmon_QueryValueKey   (HANDLE KeyHandle, PUNICODE_STRING ValueName, KEY_VALUE_INFORMATION_CLASS KeyValueInformationClass, PVOID KeyValueInformation, ULONG Length, PULONG ResultLength)
+{
+	NTSTATUS retval;
+	struct htable_entry *parent_entry;
+
+	retval = (*stock_QueryValueKey)(KeyHandle, ValueName, KeyValueInformationClass, KeyValueInformation, Length, ResultLength);
+
+	if (KeGetPreviousMode() == KernelMode)
+		return retval;
+
+	parent_entry = htable_get_entry((unsigned long)PsGetCurrentProcessId(), KeyHandle);
+	if (parent_entry == NULL) {
+		void *object_body;
+		char object_namei[1024];
+		int ret_length;
+
+//		DbgPrint("QueryValueKey mis (%x, %S) = %x\n", KeyHandle, ValueName->Buffer, retval);
+		if (ObReferenceObjectByHandle(KeyHandle,
+					KEY_ALL_ACCESS,
+					NULL,
+					KernelMode,
+					&object_body,
+					NULL) == STATUS_SUCCESS) {
+			if (ObQueryNameString(object_body,
+						(POBJECT_NAME_INFORMATION)object_namei,
+						sizeof(object_namei),
+						&ret_length) == STATUS_SUCCESS) {
+				parent_entry = htable_allocate_entry();
+				parent_entry->pid = (unsigned long)PsGetCurrentProcessId();
+				parent_entry->handle = KeyHandle;
+				parent_entry->name_length =
+					MAX_PATH_SIZE - 1 < ((POBJECT_NAME_INFORMATION)object_namei)->Name.Length / 2 ?
+					MAX_PATH_SIZE - 1 : ((POBJECT_NAME_INFORMATION)object_namei)->Name.Length / 2;
+				RtlCopyMemory(parent_entry->name,
+						((POBJECT_NAME_INFORMATION)object_namei)->Name.Buffer,
+						parent_entry->name_length * 2);
+				parent_entry->name[parent_entry->name_length] = 0;
+				htable_add_entry(parent_entry);
+			}
+			ObDereferenceObject(object_body);
+		}
+	} else {
+//		DbgPrint("QueryValueKey hit (%x, %S) = %x\n", KeyHandle, ValueName->Buffer, retval);
+	}
+
+	if (parent_entry != NULL) {
+		struct event *event = event_buffer_start_add();
+
+		if (event != NULL) {
+			event->type = ET_REG_QUERYVALUE;
+			event->status = retval;
+			event->reg_rw.handle = KeyHandle;
+			if (retval == STATUS_SUCCESS) {
+				switch (KeyValueInformationClass) {
+				case KeyValueBasicInformation:
+					event->reg_rw.value_type = ((KEY_VALUE_BASIC_INFORMATION *)KeyValueInformation)->Type;
+					event->reg_rw.value_length = 0;
+					event->reg_rw.value[0] = '\0';
+					break;
+				case KeyValueFullInformation:
+					event->reg_rw.value_type = ((KEY_VALUE_FULL_INFORMATION *)KeyValueInformation)->Type;
+					event->reg_rw.value_length =
+						MAX_IO_SIZE - 1 < ((KEY_VALUE_FULL_INFORMATION *)KeyValueInformation)->DataLength ?
+						MAX_IO_SIZE - 1 : ((KEY_VALUE_FULL_INFORMATION *)KeyValueInformation)->DataLength;
+					RtlCopyMemory(event->reg_rw.value,
+							(char *)KeyValueInformation + ((KEY_VALUE_FULL_INFORMATION *)KeyValueInformation)->DataOffset,
+							event->reg_rw.value_length);
+					event->reg_rw.value[event->reg_rw.value_length] = '\0';
+					break;
+				case KeyValuePartialInformation:
+					event->reg_rw.value_type = ((KEY_VALUE_PARTIAL_INFORMATION *)KeyValueInformation)->Type;
+					event->reg_rw.value_length =
+						MAX_IO_SIZE - 1 < ((KEY_VALUE_PARTIAL_INFORMATION *)KeyValueInformation)->DataLength ?
+						MAX_IO_SIZE - 1 : ((KEY_VALUE_PARTIAL_INFORMATION *)KeyValueInformation)->DataLength;
+					RtlCopyMemory(event->reg_rw.value,
+							&((KEY_VALUE_PARTIAL_INFORMATION *)KeyValueInformation)->Data,
+							event->reg_rw.value_length);
+					event->reg_rw.value[event->reg_rw.value_length] = '\0';
+				}
+			} else {
+				event->reg_rw.value_type = 0;
+				event->reg_rw.value_length = 0;
+				event->reg_rw.value[0] = '\0';
+			}
+			event->path_length = parent_entry->name_length + 1 + ValueName->Length / 2;
+			if (event->path_length >= MAX_PATH_SIZE)
+				event->path_length = MAX_PATH_SIZE - 1;
+			RtlCopyMemory(event->path, parent_entry->name, parent_entry->name_length * 2);
+			if (event->path_length > parent_entry->name_length)
+				event->path[parent_entry->name_length] = L'\\';
+			if (event->path_length - parent_entry->name_length - 1 > 0)
+				RtlCopyMemory(event->path + parent_entry->name_length + 1,
+						ValueName->Buffer,
+						(event->path_length - parent_entry->name_length - 1) * 2);
+			event->path[event->path_length] = 0;
+			event_buffer_finish_add();
+		}
+	} else {
+		if (retval == STATUS_SUCCESS) {
+//			DbgPrint("Opps! it should fail because I can't name the parent.\n");
+		}
+	}
+
+	return retval;
+}
 
 static const int num_SetValueKey = 247;
 static NTSTATUS (*stock_SetValueKey) (HANDLE KeyHandle, PUNICODE_STRING ValueName, ULONG TitleIndex OPTIONAL, ULONG Type, PVOID Data, ULONG DataSize);
+static NTSTATUS resmon_SetValueKey   (HANDLE KeyHandle, PUNICODE_STRING ValueName, ULONG TitleIndex OPTIONAL, ULONG Type, PVOID Data, ULONG DataSize)
+{
+	NTSTATUS retval;
+	struct htable_entry *parent_entry;
+
+	retval = (*stock_SetValueKey)(KeyHandle, ValueName, TitleIndex, Type, Data, DataSize);
+
+	if (KeGetPreviousMode() == KernelMode)
+		return retval;
+
+	parent_entry = htable_get_entry((unsigned long)PsGetCurrentProcessId(), KeyHandle);
+	if (parent_entry == NULL) {
+		void *object_body;
+		char object_namei[1024];
+		int ret_length;
+
+//		DbgPrint("SetValueKey mis (%x, %S) = %x\n", KeyHandle, ValueName->Buffer, retval);
+		if (ObReferenceObjectByHandle(KeyHandle,
+					KEY_ALL_ACCESS,
+					NULL,
+					KernelMode,
+					&object_body,
+					NULL) == STATUS_SUCCESS) {
+			if (ObQueryNameString(object_body,
+						(POBJECT_NAME_INFORMATION)object_namei,
+						sizeof(object_namei),
+						&ret_length) == STATUS_SUCCESS) {
+				parent_entry = htable_allocate_entry();
+				parent_entry->pid = (unsigned long)PsGetCurrentProcessId();
+				parent_entry->handle = KeyHandle;
+				parent_entry->name_length =
+					MAX_PATH_SIZE - 1 < ((POBJECT_NAME_INFORMATION)object_namei)->Name.Length / 2 ?
+					MAX_PATH_SIZE - 1 : ((POBJECT_NAME_INFORMATION)object_namei)->Name.Length / 2;
+				RtlCopyMemory(parent_entry->name,
+						((POBJECT_NAME_INFORMATION)object_namei)->Name.Buffer,
+						parent_entry->name_length * 2);
+				parent_entry->name[parent_entry->name_length] = 0;
+				htable_add_entry(parent_entry);
+			}
+			ObDereferenceObject(object_body);
+		}
+	} else {
+//		DbgPrint("SetValueKey hit (%x, %S) = %x\n", KeyHandle, ValueName->Buffer, retval);
+	}
+
+	if (parent_entry != NULL) {
+		struct event *event = event_buffer_start_add();
+
+		if (event != NULL) {
+			event->type = ET_REG_SETVALUE;
+			event->status = retval;
+			event->reg_rw.handle = KeyHandle;
+			event->reg_rw.value_type = Type;
+			event->reg_rw.value_length = MAX_IO_SIZE - 1 < DataSize ? MAX_IO_SIZE - 1 : DataSize;
+			RtlCopyMemory(event->reg_rw.value, Data, event->reg_rw.value_length);
+			event->reg_rw.value[event->reg_rw.value_length] = '\0';
+			event->path_length = parent_entry->name_length + 1 + ValueName->Length / 2;
+			if (event->path_length >= MAX_PATH_SIZE)
+				event->path_length = MAX_PATH_SIZE - 1;
+			RtlCopyMemory(event->path, parent_entry->name, parent_entry->name_length * 2);
+			if (event->path_length > parent_entry->name_length)
+				event->path[parent_entry->name_length] = L'\\';
+			if (event->path_length - parent_entry->name_length - 1 > 0)
+				RtlCopyMemory(event->path + parent_entry->name_length + 1,
+						ValueName->Buffer,
+						(event->path_length - parent_entry->name_length - 1) * 2);
+			event->path[event->path_length] = 0;
+			event_buffer_finish_add();
+		}
+	} else {
+		if (retval == STATUS_SUCCESS) {
+//			DbgPrint("Opps! it should fail because I can't name the parent.\n");
+		}
+	}
+
+	return retval;
+}
 
 NTSTATUS reg_init (void)
 {
@@ -475,6 +657,10 @@ NTSTATUS reg_init (void)
 	entries[num_DeleteValueKey] = resmon_DeleteValueKey;
 	stock_OpenKey = entries[num_OpenKey];
 	entries[num_OpenKey] = resmon_OpenKey;
+	stock_QueryValueKey = entries[num_QueryValueKey];
+	entries[num_QueryValueKey] = resmon_QueryValueKey;
+	stock_SetValueKey = entries[num_SetValueKey];
+	entries[num_SetValueKey] = resmon_SetValueKey;
 
 	_asm
 	{
@@ -504,6 +690,8 @@ void reg_fini (void)
 	entries[num_DeleteKey] = stock_DeleteKey;
 	entries[num_DeleteValueKey] = stock_DeleteValueKey;
 	entries[num_OpenKey] = stock_OpenKey;
+	entries[num_QueryValueKey] = stock_QueryValueKey;
+	entries[num_SetValueKey] = stock_SetValueKey;
 
 	_asm
 	{

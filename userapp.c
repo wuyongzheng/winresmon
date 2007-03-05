@@ -8,43 +8,70 @@ void process_event (const struct event *event)
 	if (event->type == ET_IGNORE)
 		return;
 
-	printf("%u %I64u %5d %5d ", event->serial, event->time.QuadPart, event->pid, event->tid);
+	printf("%u %I64u %5d %5d %x ", event->serial, event->time.QuadPart, event->pid, event->tid, event->status);
 
 	switch (event->type) {
 	case ET_FILE_CREATE:
-		printf("create: access=%x share=%x attr=%x cd=%x co=%x %x \"%S\"\n",
+		printf("create: access=%x share=%x attr=%x cd=%x co=%x \"%S\"\n",
 				event->file_create.desired_access, event->file_create.share_mode, event->file_create.attributes, event->file_create.creation_disposition, event->file_create.create_options,
-				event->status, event->path);
+				event->path);
 		break;
 	case ET_FILE_CLOSE:
 		printf("close: \"%S\"\n", event->path);
 		break;
 	case ET_FILE_READ:
-		printf("read: %I64u+%lu %x \"%S\"\n", event->file_rw.offset.QuadPart, event->file_rw.length, event->status, event->path);
+		printf("read: %I64u+%lu \"%S\"\n", event->file_rw.offset.QuadPart, event->file_rw.length, event->path);
 		break;
 	case ET_FILE_WRITE:
-		printf("write: %I64u+%lu %x \"%S\"\n", event->file_rw.offset.QuadPart, event->file_rw.length, event->status, event->path);
+		printf("write: %I64u+%lu \"%S\"\n", event->file_rw.offset.QuadPart, event->file_rw.length, event->path);
 		break;
 	case ET_FILE_CREATE_MAILSLOT:
-		printf("mslot: %x \"%S\"\n", event->status, event->path);
+		printf("mslot: \"%S\"\n", event->path);
 		break;
 	case ET_FILE_CREATE_NAMED_PIPE:
-		printf("pipe: %x \"%S\"\n", event->status, event->path);
+		printf("pipe: \"%S\"\n", event->path);
 		break;
 	case ET_REG_CLOSE:
-		printf("reg_close: %x %x \"%S\"\n", event->status, event->reg_close.handle, event->path);
+		printf("reg_close: %x \"%S\"\n", event->reg_close.handle, event->path);
 		break;
 	case ET_REG_CREATE:
-		printf("reg_create: st=%x hd=%x da=%x co=%x cd=%x \"%S\"\n", event->status, event->reg_create.handle, event->reg_create.desired_access, event->reg_create.create_options, event->reg_create.creation_disposition, event->path);
+		printf("reg_create: hd=%x da=%x co=%x cd=%x \"%S\"\n", event->reg_create.handle, event->reg_create.desired_access, event->reg_create.create_options, event->reg_create.creation_disposition, event->path);
 		break;
 	case ET_REG_DELETE:
-		printf("reg_delete: %x %x \"%S\"\n", event->status, event->reg_delete.handle, event->path);
+		printf("reg_delete: %x \"%S\"\n", event->reg_delete.handle, event->path);
 		break;
 	case ET_REG_DELETEVALUE:
-		printf("reg_deletevalue: %x %x \"%S\"\n", event->status, event->reg_delete_value.handle, event->path);
+		printf("reg_deletevalue: %x \"%S\"\n", event->reg_delete_value.handle, event->path);
 		break;
 	case ET_REG_OPEN:
-		printf("reg_open: %x %x %x \"%S\"\n", event->status, event->reg_open.handle, event->reg_open.desired_access, event->path);
+		printf("reg_open: %x %x \"%S\"\n", event->reg_open.handle, event->reg_open.desired_access, event->path);
+		break;
+	case ET_REG_QUERYVALUE:
+	case ET_REG_SETVALUE:
+		switch (event->reg_rw.value_type) {
+		case REG_BINARY:
+			printf("reg_%svalue: t=REG_BINARY l=%d \"%S\"\n",
+					event->type == ET_REG_QUERYVALUE ? "query" : "set",
+					event->reg_rw.value_length, event->path);
+			break;
+		case REG_DWORD:
+			printf("reg_%svalue: t=REG_DWORD v=%x \"%S\"\n",
+					event->type == ET_REG_QUERYVALUE ? "query" : "set",
+					*(unsigned int *)event->reg_rw.value, event->path);
+			break;
+		case REG_EXPAND_SZ:
+			printf("reg_%svalue: t=REG_EXPAND_SZ l=%d v=\"%S\" \"%S\"\n",
+					event->type == ET_REG_QUERYVALUE ? "query" : "set",
+					event->reg_rw.value_length, event->reg_rw.value, event->path);
+			break;
+		case REG_SZ:
+			printf("reg_%svalue: t=REG_EXPAND_SZ l=%d v=\"%S\" \"%S\"\n",
+					event->type == ET_REG_QUERYVALUE ? "query" : "set",
+					event->reg_rw.value_length, event->reg_rw.value, event->path);
+			break;
+		default:
+			printf("reg_queryvalue: t=%x l=%d \"%S\"\n", event->reg_rw.value_type, event->reg_rw.value_length, event->path);
+		}
 		break;
 	case ET_PROC_PROC_CREATE:
 		printf("proc_create: ppid=%d, pid=%d\n", event->proc_proc_create.ppid, event->proc_proc_create.pid);
