@@ -37,6 +37,9 @@ void process_event (const struct event *event)
 	case ET_REG_CREATE:
 		printf("reg_create: st=%x hd=%x da=%x co=%x cd=%x \"%S\"\n", event->status, event->reg_create.handle, event->reg_create.desired_access, event->reg_create.create_options, event->reg_create.creation_disposition, event->path);
 		break;
+	case ET_REG_DELETE:
+		printf("reg_delete: %x %x \"%S\"\n", event->status, event->reg_delete.handle, event->path);
+		break;
 	case ET_REG_OPEN:
 		printf("reg_open: %x %x %x \"%S\"\n", event->status, event->reg_open.handle, event->reg_open.desired_access, event->path);
 		break;

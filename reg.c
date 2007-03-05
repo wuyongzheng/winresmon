@@ -206,6 +206,33 @@ static NTSTATUS resmon_CreateKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess
 
 static const int num_DeleteKey = 63;
 static NTSTATUS (*stock_DeleteKey) (HANDLE KeyHandle);
+static NTSTATUS resmon_DeleteKey   (HANDLE KeyHandle)
+{
+	NTSTATUS retval;
+	struct htable_entry *hentry;
+	struct event *event;
+
+	retval = (*stock_DeleteKey)(KeyHandle);
+
+	if (KeGetPreviousMode() == KernelMode)
+		return retval;
+
+	hentry = htable_get_entry((unsigned long)PsGetCurrentProcessId(), KeyHandle);
+	if (hentry == NULL)
+		return retval;
+
+	event = event_buffer_start_add();
+	if (event != NULL) {
+		event->type = ET_REG_DELETE;
+		event->status = retval;
+		event->reg_delete.handle = KeyHandle;
+		event->path_length = hentry->name_length;
+		RtlCopyMemory(event->path, hentry->name, hentry->name_length * 2 + 2);
+		event_buffer_finish_add();
+	}
+
+	return retval;
+}
 
 static const int num_DeleteValueKey = 65;
 static NTSTATUS (*stock_DeleteValueKey) (HANDLE KeyHandle, PUNICODE_STRING ValueName);
@@ -368,6 +395,8 @@ NTSTATUS reg_init (void)
 	entries[num_Close] = resmon_Close;
 	stock_CreateKey = entries[num_CreateKey];
 	entries[num_CreateKey] = resmon_CreateKey;
+	stock_DeleteKey = entries[num_DeleteKey];
+	entries[num_DeleteKey] = resmon_DeleteKey;
 	stock_OpenKey = entries[num_OpenKey];
 	entries[num_OpenKey] = resmon_OpenKey;
 
@@ -396,6 +425,7 @@ void reg_fini (void)
 
 	entries[num_Close] = stock_Close;
 	entries[num_CreateKey] = stock_CreateKey;
+	entries[num_DeleteKey] = stock_DeleteKey;
 	entries[num_OpenKey] = stock_OpenKey;
 
 	_asm

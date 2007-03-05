@@ -77,6 +77,9 @@ struct event {
 		} reg_create;
 		struct {
 			HANDLE handle;
+		} reg_delete;
+		struct {
+			HANDLE handle;
 			ACCESS_MASK desired_access;
 		} reg_open;
 		struct {
