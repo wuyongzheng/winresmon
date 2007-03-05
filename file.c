@@ -9,7 +9,7 @@ static FLT_PREOP_CALLBACK_STATUS on_pre_op (PFLT_CALLBACK_DATA data, PCFLT_RELAT
 	FLT_FILE_NAME_INFORMATION *name_info;
 	struct event *event;
 
-	if (KeGetCurrentIrql() > APC_LEVEL || fltobj->FileObject == NULL)
+	if (data->RequestorMode == KernelMode || KeGetCurrentIrql() > APC_LEVEL || fltobj->FileObject == NULL)
 		return FLT_PREOP_SUCCESS_NO_CALLBACK;
 
 	name_info = NULL;
@@ -51,7 +51,7 @@ static FLT_POSTOP_CALLBACK_STATUS on_post_op (PFLT_CALLBACK_DATA data, PCFLT_REL
 	FLT_FILE_NAME_INFORMATION *name_info;
 	struct event *event;
 
-	if (KeGetCurrentIrql() > APC_LEVEL || fltobj->FileObject == NULL)
+	if (data->RequestorMode == KernelMode || KeGetCurrentIrql() > APC_LEVEL || fltobj->FileObject == NULL)
 		return FLT_POSTOP_FINISHED_PROCESSING;
 
 	name_info = NULL;
