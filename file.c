@@ -17,7 +17,7 @@ static FLT_PREOP_CALLBACK_STATUS on_pre_op (PFLT_CALLBACK_DATA data, PCFLT_RELAT
 			FLT_FILE_NAME_NORMALIZED | FLT_FILE_NAME_QUERY_ALWAYS_ALLOW_CACHE_LOOKUP,
 			&name_info);
 	if (retval != STATUS_SUCCESS) {
-//		DbgPrint("resmon+on_pre_op(%u): FltGetFileNameInformation failed: %x\n", data->Iopb->MajorFunction, retval);
+		DbgPrint("resmon+on_pre_op(%u): FltGetFileNameInformation failed: %x\n", data->Iopb->MajorFunction, retval);
 		return FLT_PREOP_SUCCESS_NO_CALLBACK;
 	}
 
@@ -59,7 +59,7 @@ static FLT_POSTOP_CALLBACK_STATUS on_post_op (PFLT_CALLBACK_DATA data, PCFLT_REL
 			FLT_FILE_NAME_NORMALIZED | FLT_FILE_NAME_QUERY_ALWAYS_ALLOW_CACHE_LOOKUP,
 			&name_info);
 	if (retval != STATUS_SUCCESS) {
-//		DbgPrint("resmon+on_post_op(%u): FltGetFileNameInformation failed: %x\n", data->Iopb->MajorFunction, retval);
+		DbgPrint("resmon+on_post_op(%u): FltGetFileNameInformation failed: %x\n", data->Iopb->MajorFunction, retval);
 		return FLT_POSTOP_FINISHED_PROCESSING;
 	}
 
@@ -94,6 +94,12 @@ static FLT_POSTOP_CALLBACK_STATUS on_post_op (PFLT_CALLBACK_DATA data, PCFLT_REL
 	case IRP_MJ_CREATE_NAMED_PIPE:
 		event->type = ET_FILE_CREATE_NAMED_PIPE;
 		break;
+	case IRP_MJ_QUERY_INFORMATION:
+		//TODO
+		break;
+	case IRP_MJ_SET_INFORMATION:
+		//TODO
+		break;
 	default:
 		DbgPrint("resmon: unknown post MajorFunction %d\n", data->Iopb->MajorFunction);
 		event->type = ET_IGNORE;
@@ -125,13 +131,13 @@ NTSTATUS file_init (void)
 //		{IRP_MJ_LOCK_CONTROL,                        0, NULL, on_post_op, NULL},
 //		{IRP_MJ_PNP,                                 0, NULL, on_post_op, NULL},
 //		{IRP_MJ_QUERY_EA,                            0, NULL, on_post_op, NULL},
-//		{IRP_MJ_QUERY_INFORMATION,                   0, NULL, on_post_op, NULL},
+		{IRP_MJ_QUERY_INFORMATION,                   0, NULL, on_post_op, NULL},
 //		{IRP_MJ_QUERY_QUOTA,                         0, NULL, on_post_op, NULL},
 //		{IRP_MJ_QUERY_SECURITY,                      0, NULL, on_post_op, NULL},
 //		{IRP_MJ_QUERY_VOLUME_INFORMATION,            0, NULL, on_post_op, NULL},
 		{IRP_MJ_READ,                                0, NULL, on_post_op, NULL},
 //		{IRP_MJ_SET_EA,                              0, NULL, on_post_op, NULL},
-//		{IRP_MJ_SET_INFORMATION,                     0, NULL, on_post_op, NULL},
+		{IRP_MJ_SET_INFORMATION,                     0, NULL, on_post_op, NULL},
 //		{IRP_MJ_SET_QUOTA,                           0, NULL, on_post_op, NULL},
 //		{IRP_MJ_SET_SECURITY,                        0, NULL, on_post_op, NULL},
 //		{IRP_MJ_SET_VOLUME_INFORMATION,              0, NULL, on_post_op, NULL},
