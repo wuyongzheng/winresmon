@@ -41,6 +41,13 @@ void event_buffer_finish_add (void)
 		KeSetEvent(event_buffer_readyevent, 0, FALSE);
 }
 
+void event_buffer_cancel_add (void)
+{
+	event_serial --;
+	event_buffer->counters[event_buffer->active] --;
+	ExReleaseFastMutex(&event_buffer_mutex);
+}
+
 void event_buffer_swap (void)
 {
 	ExAcquireFastMutex(&event_buffer_mutex);

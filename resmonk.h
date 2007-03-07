@@ -27,6 +27,7 @@ void handle_table_fini (void);
 
 struct event *event_buffer_start_add (void);
 void event_buffer_finish_add (void);
+void event_buffer_cancel_add (void);
 void event_buffer_swap (void);
 NTSTATUS event_buffer_init (void);
 void event_buffer_fini (void);
