@@ -33,13 +33,17 @@ static FLT_PREOP_CALLBACK_STATUS on_pre_op (PFLT_CALLBACK_DATA data, PCFLT_RELAT
 		break;
 	default:
 		DbgPrint("resmon: unknown pre MajorFunction %d\n", data->Iopb->MajorFunction);
-		event->type = ET_FILE_CLOSE;
+		event_buffer_cancel_add();
+		event = NULL;
 	}
-	event->status = 0;
-	event->path_length = MAX_PATH_SIZE - 1 < name_info->Name.Length / 2 ? MAX_PATH_SIZE - 1 : name_info->Name.Length / 2;
-	RtlCopyMemory(event->path, name_info->Name.Buffer, event->path_length * 2);
-	event->path[event->path_length] = 0;
-	event_buffer_finish_add();
+
+	if (event != NULL) {
+		event->status = 0;
+		event->path_length = MAX_PATH_SIZE - 1 < name_info->Name.Length / 2 ? MAX_PATH_SIZE - 1 : name_info->Name.Length / 2;
+		RtlCopyMemory(event->path, name_info->Name.Buffer, event->path_length * 2);
+		event->path[event->path_length] = 0;
+		event_buffer_finish_add();
+	}
 
 	FltReleaseFileNameInformation(name_info);
 	return FLT_PREOP_SUCCESS_NO_CALLBACK;
@@ -95,10 +99,63 @@ static FLT_POSTOP_CALLBACK_STATUS on_post_op (PFLT_CALLBACK_DATA data, PCFLT_REL
 		event->type = ET_FILE_CREATE_NAMED_PIPE;
 		break;
 	case IRP_MJ_QUERY_INFORMATION:
-		//TODO
+		event->type = ET_FILE_QUERY_INFORMATION;
+		switch (data->Iopb->Parameters.QueryFileInformation.FileInformationClass) {
+		case FileAllInformation:
+			DbgPrint("resmon: FileAllInformation ignored\n");
+			event_buffer_cancel_add();
+			event = NULL;
+			break;
+		case FileAttributeTagInformation:
+		case FileBasicInformation:
+		case FileCompressionInformation:
+		case FileEaInformation:
+		case FileInternalInformation:
+		case FileNameInformation:
+		case FileNetworkOpenInformation:
+		case FilePositionInformation:
+		case FileStandardInformation:
+		case FileStreamInformation:
+			if (data->IoStatus.Status == STATUS_SUCCESS) {
+				// NOTE: unicode string at the end is not sero terminated
+				event->file_info.info_type = data->Iopb->Parameters.QueryFileInformation.FileInformationClass;
+				event->file_info.info_size = data->Iopb->Parameters.QueryFileInformation.Length < sizeof(event->file_info.info_data) ? data->Iopb->Parameters.QueryFileInformation.Length : sizeof(event->file_info.info_data);
+				RtlCopyMemory(&event->file_info.info_data,
+						data->Iopb->Parameters.QueryFileInformation.InfoBuffer,
+						event->file_info.info_size);
+			}
+			break;
+		default:
+			DbgPrint("resmon: unknown FileInformationClass %d in IRP_MJ_QUERY_INFORMATION\n",
+					data->Iopb->Parameters.QueryFileInformation.FileInformationClass);
+			event_buffer_cancel_add();
+			event = NULL;
+		}
 		break;
 	case IRP_MJ_SET_INFORMATION:
-		//TODO
+		event->type = ET_FILE_SET_INFORMATION;
+		switch (data->Iopb->Parameters.SetFileInformation.FileInformationClass) {
+		case FileAllocationInformation:
+		case FileBasicInformation:
+		case FileDispositionInformation:
+		case FileEndOfFileInformation:
+		case FileLinkInformation:
+		case FilePositionInformation:
+		case FileRenameInformation:
+		case FileValidDataLengthInformation:
+			// NOTE: unicode string at the end is not sero terminated
+			event->file_info.info_type = data->Iopb->Parameters.SetFileInformation.FileInformationClass;
+			event->file_info.info_size = data->Iopb->Parameters.SetFileInformation.Length < sizeof(event->file_info.info_data) ? data->Iopb->Parameters.SetFileInformation.Length : sizeof(event->file_info.info_data);
+			RtlCopyMemory(&event->file_info.info_data,
+					data->Iopb->Parameters.SetFileInformation.InfoBuffer,
+					event->file_info.info_size);
+			break;
+		default:
+			DbgPrint("resmon: unknown FileInformationClass %d in IRP_MJ_SET_INFORMATION\n",
+					data->Iopb->Parameters.SetFileInformation.FileInformationClass);
+			event_buffer_cancel_add();
+			event = NULL;
+		}
 		break;
 	default:
 		DbgPrint("resmon: unknown post MajorFunction %d\n", data->Iopb->MajorFunction);

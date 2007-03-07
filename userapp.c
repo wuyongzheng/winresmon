@@ -33,6 +33,12 @@ void process_event (const struct event *event)
 	case ET_FILE_CREATE_NAMED_PIPE:
 		printf("pipe: \"%S\"\n", event->path);
 		break;
+	case ET_FILE_QUERY_INFORMATION:
+		printf("queryinfo: t=%d s=%d \"%S\"\n", event->file_info.info_type, event->file_info.info_size, event->path);
+		break;
+	case ET_FILE_SET_INFORMATION:
+		printf("setinfo: t=%d s=%d \"%S\"\n", event->file_info.info_type, event->file_info.info_size, event->path);
+		break;
 	case ET_REG_CLOSE:
 		printf("reg_close: %x \"%S\"\n", event->reg_close.handle, event->path);
 		break;

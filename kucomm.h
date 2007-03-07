@@ -71,6 +71,91 @@ struct event {
 			char data[MAX_IO_SIZE];
 		} file_rw;
 		struct {
+			int info_type;
+			int info_size;
+			union {
+				struct {
+					LARGE_INTEGER allocation_size;
+				} file_info_allocation;
+				struct {
+					unsigned long file_attributes;
+					unsigned long reparse_tag;
+				} file_info_attribute_tag;
+				struct {
+					LARGE_INTEGER creation_time;
+					LARGE_INTEGER last_access_time;
+					LARGE_INTEGER last_write_time;
+					LARGE_INTEGER change_time;
+					unsigned long file_attributes;
+				} file_info_basic;
+				struct {
+					LARGE_INTEGER compressed_file_size;
+					unsigned short compression_format;
+					unsigned char compression_unit_shift;
+					unsigned char chunk_shift;
+					unsigned char cluster_shift;
+					unsigned char reserved[3];
+				} file_info_compression;
+				struct {
+					int delete_file;
+				} file_info_disposition;
+				struct {
+					unsigned long ea_size;
+				} file_info_ea;
+				struct {
+					LARGE_INTEGER end_of_file;
+				} file_info_end_of_file;
+				struct {
+					LARGE_INTEGER index_number;
+				} file_info_internal;
+				struct {
+					int replace_if_exists;
+					HANDLE root_directory;
+					unsigned long file_name_length;
+					short file_name[MAX_PATH_SIZE];
+				} file_info_link;
+				struct {
+					unsigned long file_name_length;
+					short file_name[MAX_PATH_SIZE];
+				} file_info_name;
+				struct {
+					LARGE_INTEGER creation_time;
+					LARGE_INTEGER last_access_time;
+					LARGE_INTEGER last_write_time;
+					LARGE_INTEGER change_time;
+					LARGE_INTEGER allocation_size;
+					LARGE_INTEGER end_of_file;
+					unsigned long file_attributes;
+				} file_info_network_open;
+				struct {
+					LARGE_INTEGER current_byte_offset;
+				} file_info_position;
+				struct {
+					int replace_if_exists;
+					HANDLE root_directory;
+					unsigned long file_name_length;
+					short file_name[MAX_PATH_SIZE];
+				} file_info_rename;
+				struct {
+					LARGE_INTEGER allocation_size;
+					LARGE_INTEGER end_of_file;
+					unsigned long number_of_links;
+					int delete_pending;
+					int directory;
+				} file_info_standard;
+				struct {
+					unsigned long next_entry_offset;
+					unsigned long stream_name_length;
+					LARGE_INTEGER stream_size;
+					LARGE_INTEGER stream_allocation_size;
+					short stream_name[MAX_PATH_SIZE];
+				} file_info_stream;
+				struct {
+					LARGE_INTEGER valid_data_length;
+				} file_info_valid_data_length;
+			} info_data;
+		} file_info;
+		struct {
 			HANDLE handle;
 		} reg_close;
 		struct {
