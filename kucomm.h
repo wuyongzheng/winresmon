@@ -18,8 +18,8 @@
 #define MAX_PATH_SIZE 256 // number of unicode characters
 #define MAX_IO_SIZE 64    // number of bytes
 
-#define EVENT_BUFFER_SIZE 256
-#define EVENT_BUFFER_THRESHOLD (EVENT_BUFFER_SIZE*3/4)
+#define EVENT_BUFFER_SIZE 1024
+#define EVENT_BUFFER_THRESHOLD (EVENT_BUFFER_SIZE / 2)
 
 enum event_type {
 	ET_IGNORE,
