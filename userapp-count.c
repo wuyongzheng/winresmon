@@ -10,6 +10,8 @@ int main (void)
 	HANDLE section;
 	struct event_buffer *event_buffer;
 	int recorded = 0;
+	unsigned long last_report_tick = 0;
+	int last_report_num = 0;
 
 	if(!SetPriorityClass(GetCurrentProcess(), ABOVE_NORMAL_PRIORITY_CLASS)) {
 		printf("SetPriorityClass(GetCurrentProcess(), ABOVE_NORMAL_PRIORITY_CLASS) failed. err=%d\n", GetLastError());
@@ -48,7 +50,6 @@ int main (void)
 	for (;;) {
 		DWORD wait_status;
 		int event_num;
-		int i;
 
 		// wait for at most 1 sec
 		wait_status = WaitForSingleObject(ready_event, 1000);
@@ -63,14 +64,21 @@ int main (void)
 
 		if (!DeviceIoControl(driver_file, (ULONG)IOCTL_REQUEST_SWAP,
 					NULL, 0, NULL, 0,
-					&i, NULL)) {
+					&event_num, NULL)) {
 			printf("DeviceIoControl() failed %d\n", GetLastError());
 			return 1;
 		}
 
 		event_num = event_buffer->counters[!event_buffer->active];
-		if (((recorded + event_num) ^ recorded) >= 1024) {
-			printf("recorded=%8d, missed=%8d\n", recorded + event_num, event_buffer->missing);
+		if (event_num <= 0)
+			continue;
+		if (GetTickCount() >= last_report_tick + 1000 && recorded + event_num > last_report_num) {
+			printf("recorded=%8d, last=%8d, missed=%8d\n",
+					recorded + event_num,
+					event_buffer->buffers[!event_buffer->active][event_num - 1].serial,
+					event_buffer->missing);
+			last_report_tick = GetTickCount();
+			last_report_num = recorded + event_num;
 		}
 		recorded += event_num;
 	}
