@@ -54,7 +54,7 @@ static NTSTATUS resmon_Close   (HANDLE Handle)
 	NTSTATUS retval = (*stock_Close)(Handle);
 	struct htable_entry *ht_entry = htable_get_entry((unsigned long)PsGetCurrentProcessId(), Handle);
 
-	if (KeGetPreviousMode() == KernelMode)
+	if (KeGetPreviousMode() == KernelMode || daemon_pid == 0)
 		return retval;
 
 	if (ht_entry != NULL) {
@@ -83,7 +83,7 @@ static NTSTATUS resmon_CreateKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess
 
 	retval = (*stock_CreateKey)(KeyHandle, DesiredAccess, ObjectAttributes, TitleIndex, Class, CreateOptions, Disposition);
 
-	if (KeGetPreviousMode() == KernelMode)
+	if (KeGetPreviousMode() == KernelMode || daemon_pid == 0)
 		return retval;
 
 	if (ObjectAttributes->RootDirectory == NULL) {
@@ -214,7 +214,7 @@ static NTSTATUS resmon_DeleteKey   (HANDLE KeyHandle)
 
 	retval = (*stock_DeleteKey)(KeyHandle);
 
-	if (KeGetPreviousMode() == KernelMode)
+	if (KeGetPreviousMode() == KernelMode || daemon_pid == 0)
 		return retval;
 
 	hentry = htable_get_entry((unsigned long)PsGetCurrentProcessId(), KeyHandle);
@@ -243,7 +243,7 @@ static NTSTATUS resmon_DeleteValueKey   (HANDLE KeyHandle, PUNICODE_STRING Value
 
 	retval = (*stock_DeleteValueKey)(KeyHandle, ValueName);
 
-	if (KeGetPreviousMode() == KernelMode)
+	if (KeGetPreviousMode() == KernelMode || daemon_pid == 0)
 		return retval;
 
 	parent_entry = htable_get_entry((unsigned long)PsGetCurrentProcessId(), KeyHandle);
@@ -327,7 +327,7 @@ static NTSTATUS resmon_OpenKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, 
 
 	retval = (*stock_OpenKey)(KeyHandle, DesiredAccess, ObjectAttributes);
 
-	if (KeGetPreviousMode() == KernelMode)
+	if (KeGetPreviousMode() == KernelMode || daemon_pid == 0)
 		return retval;
 
 	if (ObjectAttributes->RootDirectory == NULL) {
@@ -456,7 +456,7 @@ static NTSTATUS resmon_QueryValueKey   (HANDLE KeyHandle, PUNICODE_STRING ValueN
 
 	retval = (*stock_QueryValueKey)(KeyHandle, ValueName, KeyValueInformationClass, KeyValueInformation, Length, ResultLength);
 
-	if (KeGetPreviousMode() == KernelMode)
+	if (KeGetPreviousMode() == KernelMode || daemon_pid == 0)
 		return retval;
 
 	parent_entry = htable_get_entry((unsigned long)PsGetCurrentProcessId(), KeyHandle);
@@ -564,7 +564,7 @@ static NTSTATUS resmon_SetValueKey   (HANDLE KeyHandle, PUNICODE_STRING ValueNam
 
 	retval = (*stock_SetValueKey)(KeyHandle, ValueName, TitleIndex, Type, Data, DataSize);
 
-	if (KeGetPreviousMode() == KernelMode)
+	if (KeGetPreviousMode() == KernelMode || daemon_pid == 0)
 		return retval;
 
 	parent_entry = htable_get_entry((unsigned long)PsGetCurrentProcessId(), KeyHandle);

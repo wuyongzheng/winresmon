@@ -2,6 +2,7 @@
 #include "resmonk.h"
 
 unsigned long daemon_pid = 0; // monitor is disabled when daemon not is connected
+static int initializing = 0;
 
 DRIVER_OBJECT *driver_object;
 
@@ -14,12 +15,11 @@ static NTSTATUS enable (void)
 		return STATUS_UNSUCCESSFUL;
 	}
 
-	daemon_pid = (unsigned long)PsGetCurrentProcessId();
-	if (daemon_pid == 0) {
-		DbgPrint("Opps! PsGetCurrentProcessId() = 0\n");
-		retval = STATUS_UNSUCCESSFUL;
-		goto out1;
+	// there can be race condition, but ....
+	if (initializing) {
+		return STATUS_UNSUCCESSFUL;
 	}
+	initializing = 1;
 
 	retval = handle_table_init();
 	if (retval != STATUS_SUCCESS)
@@ -37,6 +37,10 @@ static NTSTATUS enable (void)
 	if (retval != STATUS_SUCCESS)
 		goto out5;
 
+	daemon_pid = (unsigned long)PsGetCurrentProcessId();
+	ASSERT(daemon_pid != 0);
+
+	initializing = 0;
 	return STATUS_SUCCESS;
 
 out5:
@@ -48,7 +52,7 @@ out3:
 out2:
 	handle_table_fini();
 out1:
-	daemon_pid = 0;
+	initializing = 0;
 	return retval;
 }
 
@@ -58,14 +62,15 @@ static void disable (void)
 		DbgPrint("Opps! calling disable() while daemon_pid = 0\n");
 		return;
 	}
+	daemon_pid = 0;
 
+	initializing = 1;
 	proc_fini();
 	reg_fini();
 	file_fini();
 	event_buffer_fini();
 	handle_table_fini();
-
-	daemon_pid = 0;
+	initializing = 0;
 }
 
 static NTSTATUS dispatch_create (PDEVICE_OBJECT DeviceObject, PIRP irp)
