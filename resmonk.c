@@ -2,75 +2,69 @@
 #include "resmonk.h"
 
 unsigned long daemon_pid = 0; // monitor is disabled when daemon not is connected
-static int initializing = 0;
+static int starting = 0;
 
 DRIVER_OBJECT *driver_object;
 
-static NTSTATUS enable (void)
+static NTSTATUS resmonk_start (void)
 {
 	NTSTATUS retval;
 
-	if (daemon_pid) {
-		DbgPrint("Opps! calling enable() when daemon_pid = %u\n", daemon_pid);
-		return STATUS_UNSUCCESSFUL;
-	}
+	ASSERT(!daemon_pid);
 
 	// there can be race condition, but ....
-	if (initializing) {
+	if (starting) {
 		return STATUS_UNSUCCESSFUL;
 	}
-	initializing = 1;
+	starting = 1;
 
-	retval = handle_table_init();
+	retval = handle_table_start();
 	if (retval != STATUS_SUCCESS)
 		goto out1;
-	retval = event_buffer_init();
+	retval = event_buffer_start();
 	if (retval != STATUS_SUCCESS)
 		goto out2;
-	retval = file_init();
+	retval = file_start();
 	if (retval != STATUS_SUCCESS)
 		goto out3;
-	retval = reg_init();
+	retval = reg_start();
 	if (retval != STATUS_SUCCESS)
 		goto out4;
-	retval = proc_init();
+	retval = proc_start();
 	if (retval != STATUS_SUCCESS)
 		goto out5;
 
 	daemon_pid = (unsigned long)PsGetCurrentProcessId();
 	ASSERT(daemon_pid != 0);
 
-	initializing = 0;
+	starting = 0;
 	return STATUS_SUCCESS;
 
 out5:
-	reg_fini();
+	reg_stop();
 out4:
-	file_fini();
+	file_stop();
 out3:
-	event_buffer_fini();
+	event_buffer_stop();
 out2:
-	handle_table_fini();
+	handle_table_stop();
 out1:
-	initializing = 0;
+	starting = 0;
 	return retval;
 }
 
-static void disable (void)
+static void resmonk_stop (void)
 {
-	if (!daemon_pid) {
-		DbgPrint("Opps! calling disable() while daemon_pid = 0\n");
-		return;
-	}
+	ASSERT(daemon_pid);
 	daemon_pid = 0;
 
-	initializing = 1;
-	proc_fini();
-	reg_fini();
-	file_fini();
-	event_buffer_fini();
-	handle_table_fini();
-	initializing = 0;
+	starting = 1;
+	proc_stop();
+	reg_stop();
+	file_stop();
+	event_buffer_stop();
+	handle_table_stop();
+	starting = 0;
 }
 
 static NTSTATUS dispatch_create (PDEVICE_OBJECT DeviceObject, PIRP irp)
@@ -82,7 +76,7 @@ static NTSTATUS dispatch_create (PDEVICE_OBJECT DeviceObject, PIRP irp)
 		IoCompleteRequest(irp, IO_NO_INCREMENT);
 		return STATUS_UNSUCCESSFUL;
 	} else {
-		NTSTATUS retval = enable();
+		NTSTATUS retval = resmonk_start();
 		if (retval != STATUS_SUCCESS) {
 			irp->IoStatus.Information = 0;
 			irp->IoStatus.Status = retval;
@@ -107,7 +101,7 @@ static NTSTATUS dispatch_close (PDEVICE_OBJECT DeviceObject, PIRP irp)
 		IoCompleteRequest(irp, IO_NO_INCREMENT);
 		return STATUS_SUCCESS;
 	} else {
-		disable();
+		resmonk_stop();
 		irp->IoStatus.Information = 0;
 		irp->IoStatus.Status = STATUS_SUCCESS;
 		IoCompleteRequest(irp, IO_NO_INCREMENT);
@@ -170,8 +164,10 @@ static void DriverUnload (PDRIVER_OBJECT DriverObject)
 	UNICODE_STRING str;
 
 	if (daemon_pid)
-		disable();
+		resmonk_stop();
 
+	handle_table_fini();
+	event_buffer_fini();
 	RtlInitUnicodeString(&str, L"\\DosDevices\\resmon");
 	IoDeleteSymbolicLink(&str);
 	IoDeleteDevice(DriverObject->DeviceObject);
@@ -215,6 +211,20 @@ NTSTATUS DriverEntry (PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath)
 	DriverObject->MajorFunction[IRP_MJ_CLOSE] =             dispatch_close;
 	DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] =    dispatch_ioctl;
 	DriverObject->DriverUnload = DriverUnload;
+
+	status = event_buffer_init();
+	if (status != STATUS_SUCCESS) {
+		IoDeleteSymbolicLink(&sym_name);
+		IoDeleteDevice(DriverObject->DeviceObject);
+		return status;
+	}
+	status = handle_table_init();
+	if (status != STATUS_SUCCESS) {
+		event_buffer_fini();
+		IoDeleteSymbolicLink(&sym_name);
+		IoDeleteDevice(DriverObject->DeviceObject);
+		return status;
+	}
 
 	DbgPrint("resmon: Loaded\n");
 	return STATUS_SUCCESS; 

@@ -119,15 +119,26 @@ NTSTATUS event_buffer_init (void)
 	}
 	KeClearEvent(event_buffer_readyevent);
 
-	/* do some final init */
-	event_serial = 0;
 	ExInitializeFastMutex(&event_buffer_mutex);
+
+	return STATUS_SUCCESS;
+}
+
+NTSTATUS event_buffer_start (void)
+{
+	//TODO IoCreateNotificationEvent if it failed during init
+	event_serial = 0;
 	event_buffer->active = 0;
 	event_buffer->missing = 0;
 	event_buffer->counters[0] = 0;
 	event_buffer->counters[1] = 0;
 
 	return STATUS_SUCCESS;
+}
+
+void event_buffer_stop (void)
+{
+	// do nothing here
 }
 
 void event_buffer_fini (void)
@@ -140,4 +151,3 @@ void event_buffer_fini (void)
 	ZwClose(event_buffer_section);
 	event_buffer_section = NULL;
 }
-

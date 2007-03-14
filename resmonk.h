@@ -4,12 +4,18 @@
 #include <ntddk.h> 
 #include "kucomm.h"
 
+/* an htable_entry has 3 status:
+ 0. freed: after calling htable_free_entry()
+ 1. allocated or removed: after htable_allocate_entry() or htable_remove_entry()
+ 2. added: after call htable_add_entry()
+ */
 struct htable_entry {
-	LIST_ENTRY lru;
-	struct htable_entry *next; // for hashtable and free_pool
+	LIST_ENTRY list; // for lru and free_pool
+	LIST_ENTRY ht_list; // for hashtable
+	int status;
 	unsigned long pid;
 	HANDLE handle;
-	int name_length; // = 0 when not added, != 0 when added
+	int name_length;
 	short name [MAX_PATH_SIZE];
 };
 
@@ -23,6 +29,8 @@ struct htable_entry *htable_get_entry (unsigned long pid, HANDLE handle);
 void htable_remove_entry (struct htable_entry *entry);
 void htable_remove_process_entries (unsigned long pid);
 NTSTATUS handle_table_init (void);
+NTSTATUS handle_table_start (void);
+void handle_table_stop (void);
 void handle_table_fini (void);
 
 struct event *event_buffer_start_add (void);
@@ -30,15 +38,17 @@ void event_buffer_finish_add (void);
 void event_buffer_cancel_add (void);
 void event_buffer_swap (void);
 NTSTATUS event_buffer_init (void);
+NTSTATUS event_buffer_start (void);
+void event_buffer_stop (void);
 void event_buffer_fini (void);
 
-NTSTATUS reg_init (void);
-void reg_fini (void);
+NTSTATUS reg_start (void);
+void reg_stop (void);
 
-NTSTATUS proc_init (void);
-void proc_fini (void);
+NTSTATUS proc_start (void);
+void proc_stop (void);
 
-NTSTATUS file_init (void);
-void file_fini (void);
+NTSTATUS file_start (void);
+void file_stop (void);
 
 #endif

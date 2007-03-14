@@ -54,7 +54,7 @@ static NTSTATUS resmon_Close   (HANDLE Handle)
 	NTSTATUS retval = (*stock_Close)(Handle);
 	struct htable_entry *ht_entry = htable_get_entry((unsigned long)PsGetCurrentProcessId(), Handle);
 
-	if (KeGetPreviousMode() == KernelMode || daemon_pid == 0)
+	if (KeGetPreviousMode() == KernelMode)
 		return retval;
 
 	if (ht_entry != NULL) {
@@ -83,7 +83,7 @@ static NTSTATUS resmon_CreateKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess
 
 	retval = (*stock_CreateKey)(KeyHandle, DesiredAccess, ObjectAttributes, TitleIndex, Class, CreateOptions, Disposition);
 
-	if (KeGetPreviousMode() == KernelMode || daemon_pid == 0)
+	if (KeGetPreviousMode() == KernelMode)
 		return retval;
 
 	if (ObjectAttributes->RootDirectory == NULL) {
@@ -122,7 +122,7 @@ static NTSTATUS resmon_CreateKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess
 		if (parent_entry == NULL) {
 			void *object_body;
 			char object_namei[1024];
-			int ret_length;
+			unsigned long ret_length;
 //			DbgPrint("CreateKey mis (%x, %S) = %x(%x)\n", ObjectAttributes->RootDirectory, ObjectAttributes->ObjectName->Buffer, *KeyHandle, retval);
 			if (ObReferenceObjectByHandle(ObjectAttributes->RootDirectory,
 						KEY_ALL_ACCESS,
@@ -214,7 +214,7 @@ static NTSTATUS resmon_DeleteKey   (HANDLE KeyHandle)
 
 	retval = (*stock_DeleteKey)(KeyHandle);
 
-	if (KeGetPreviousMode() == KernelMode || daemon_pid == 0)
+	if (KeGetPreviousMode() == KernelMode)
 		return retval;
 
 	hentry = htable_get_entry((unsigned long)PsGetCurrentProcessId(), KeyHandle);
@@ -243,14 +243,14 @@ static NTSTATUS resmon_DeleteValueKey   (HANDLE KeyHandle, PUNICODE_STRING Value
 
 	retval = (*stock_DeleteValueKey)(KeyHandle, ValueName);
 
-	if (KeGetPreviousMode() == KernelMode || daemon_pid == 0)
+	if (KeGetPreviousMode() == KernelMode)
 		return retval;
 
 	parent_entry = htable_get_entry((unsigned long)PsGetCurrentProcessId(), KeyHandle);
 	if (parent_entry == NULL) {
 		void *object_body;
 		char object_namei[1024];
-		int ret_length;
+		unsigned long ret_length;
 
 //		DbgPrint("DeleteValueKey mis (%x, %S) = %x\n", KeyHandle, ValueName->Buffer, retval);
 		if (ObReferenceObjectByHandle(KeyHandle,
@@ -327,7 +327,7 @@ static NTSTATUS resmon_OpenKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, 
 
 	retval = (*stock_OpenKey)(KeyHandle, DesiredAccess, ObjectAttributes);
 
-	if (KeGetPreviousMode() == KernelMode || daemon_pid == 0)
+	if (KeGetPreviousMode() == KernelMode)
 		return retval;
 
 	if (ObjectAttributes->RootDirectory == NULL) {
@@ -364,7 +364,7 @@ static NTSTATUS resmon_OpenKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, 
 		if (parent_entry == NULL) {
 			void *object_body;
 			char object_namei[1024];
-			int ret_length;
+			unsigned long ret_length;
 
 //			DbgPrint("OpenKey mis (%x, %S) = %x(%x)\n", ObjectAttributes->RootDirectory, ObjectAttributes->ObjectName->Buffer, *KeyHandle, retval);
 			if (ObReferenceObjectByHandle(ObjectAttributes->RootDirectory,
@@ -456,14 +456,14 @@ static NTSTATUS resmon_QueryValueKey   (HANDLE KeyHandle, PUNICODE_STRING ValueN
 
 	retval = (*stock_QueryValueKey)(KeyHandle, ValueName, KeyValueInformationClass, KeyValueInformation, Length, ResultLength);
 
-	if (KeGetPreviousMode() == KernelMode || daemon_pid == 0)
+	if (KeGetPreviousMode() == KernelMode)
 		return retval;
 
 	parent_entry = htable_get_entry((unsigned long)PsGetCurrentProcessId(), KeyHandle);
 	if (parent_entry == NULL) {
 		void *object_body;
 		char object_namei[1024];
-		int ret_length;
+		unsigned long ret_length;
 
 //		DbgPrint("QueryValueKey mis (%x, %S) = %x\n", KeyHandle, ValueName->Buffer, retval);
 		if (ObReferenceObjectByHandle(KeyHandle,
@@ -564,14 +564,14 @@ static NTSTATUS resmon_SetValueKey   (HANDLE KeyHandle, PUNICODE_STRING ValueNam
 
 	retval = (*stock_SetValueKey)(KeyHandle, ValueName, TitleIndex, Type, Data, DataSize);
 
-	if (KeGetPreviousMode() == KernelMode || daemon_pid == 0)
+	if (KeGetPreviousMode() == KernelMode)
 		return retval;
 
 	parent_entry = htable_get_entry((unsigned long)PsGetCurrentProcessId(), KeyHandle);
 	if (parent_entry == NULL) {
 		void *object_body;
 		char object_namei[1024];
-		int ret_length;
+		unsigned long ret_length;
 
 //		DbgPrint("SetValueKey mis (%x, %S) = %x\n", KeyHandle, ValueName->Buffer, retval);
 		if (ObReferenceObjectByHandle(KeyHandle,
@@ -635,7 +635,7 @@ static NTSTATUS resmon_SetValueKey   (HANDLE KeyHandle, PUNICODE_STRING ValueNam
 	return retval;
 }
 
-NTSTATUS reg_init (void)
+NTSTATUS reg_start (void)
 {
 	void **entries = (void **)KeServiceDescriptorTable->Base;
 
@@ -673,7 +673,7 @@ NTSTATUS reg_init (void)
 	return STATUS_SUCCESS;
 }
 
-void reg_fini (void)
+void reg_stop (void)
 {
 	void **entries = (void **)KeServiceDescriptorTable->Base;
 

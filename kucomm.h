@@ -51,12 +51,14 @@ enum event_type {
 };
 
 struct event {
-	unsigned int serial;
 	LARGE_INTEGER time; // from KeQuerySystemTime
+	unsigned int serial;
 	unsigned long pid;
 	unsigned long tid;
 	enum event_type type;
 	unsigned long status;
+	int path_length; // <= MAX_PATH_SIZE - 1
+	short path[MAX_PATH_SIZE]; // always '\0' terminated
 	union {
 		struct {
 			ACCESS_MASK desired_access; // e.g. FILE_READ_EA
@@ -200,8 +202,6 @@ struct event {
 			unsigned int size;
 		} proc_image;
 	};
-	int path_length; // <= MAX_PATH_SIZE - 1
-	short path[MAX_PATH_SIZE]; // always '\0' terminated
 };
 
 struct event_buffer {

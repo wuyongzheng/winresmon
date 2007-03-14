@@ -73,7 +73,7 @@ static void proc_notify_image (PUNICODE_STRING name, HANDLE pid, PIMAGE_INFO inf
 	event_buffer_finish_add();
 }
 
-NTSTATUS proc_init (void)
+NTSTATUS proc_start (void)
 {
 	NTSTATUS retval;
 
@@ -94,7 +94,7 @@ NTSTATUS proc_init (void)
 	return STATUS_SUCCESS;
 }
 
-void proc_fini (void)
+void proc_stop (void)
 {
 	PsRemoveLoadImageNotifyRoutine(proc_notify_image);
 	PsRemoveCreateThreadNotifyRoutine(proc_notify_thread);
