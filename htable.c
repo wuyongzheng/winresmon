@@ -67,6 +67,7 @@ void htable_add_entry (struct htable_entry *entry)
 	ASSERT(entry->status == 1);
 
 	hashval = HASH_HANDLE(entry->pid, entry->handle);
+	entry->status = 2;
 
 	ExAcquireFastMutex(&mutex);
 	// remove duplicate key if exists
@@ -127,14 +128,15 @@ void htable_remove_entry (struct htable_entry *entry)
 	ASSERT(entry);
 	ASSERT(entry->pid);
 	ASSERT(entry->handle);
-	ASSERT(entry->status == 2);
 
 	ExAcquireFastMutex(&mutex);
-	// remove from LRU
-	RemoveEntryList(&entry->list);
-	lru_size --;
-	// remove from hashtable
-	RemoveEntryList(&entry->ht_list);
+	if (entry->status == 2) {
+		// remove from LRU
+		RemoveEntryList(&entry->list);
+		lru_size --;
+		// remove from hashtable
+		RemoveEntryList(&entry->ht_list);
+	}
 	ExReleaseFastMutex(&mutex);
 
 	entry->status = 1;
