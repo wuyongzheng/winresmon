@@ -110,14 +110,11 @@ NTSTATUS event_buffer_init (void)
 	RtlInitUnicodeString(&device_name, L"\\BaseNamedObjects\\resmonready");
 	event_buffer_readyevent = IoCreateNotificationEvent(&device_name, &event_buffer_readyeventhandle);
 	if (event_buffer_readyevent == NULL) {
-		DbgPrint("IoCreateNotificationEvent failed.\n");
-		MmUnmapViewInSystemSpace(event_buffer);
-		event_buffer = NULL;
-		ZwClose(event_buffer_section);
-		event_buffer_section = NULL;
-		return STATUS_UNSUCCESSFUL;
+		DbgPrint("IoCreateNotificationEvent deferred.\n");
+		event_buffer_readyeventhandle = NULL;
+	} else {
+		KeClearEvent(event_buffer_readyevent);
 	}
-	KeClearEvent(event_buffer_readyevent);
 
 	ExInitializeFastMutex(&event_buffer_mutex);
 
@@ -126,7 +123,19 @@ NTSTATUS event_buffer_init (void)
 
 NTSTATUS event_buffer_start (void)
 {
-	//TODO IoCreateNotificationEvent if it failed during init
+	if (event_buffer_readyevent == NULL) {
+		UNICODE_STRING device_name;
+		RtlInitUnicodeString(&device_name, L"\\BaseNamedObjects\\resmonready");
+		event_buffer_readyevent = IoCreateNotificationEvent(&device_name, &event_buffer_readyeventhandle);
+		if (event_buffer_readyevent == NULL) {
+			DbgPrint("IoCreateNotificationEvent failed.\n");
+			event_buffer_readyeventhandle = NULL;
+			return STATUS_UNSUCCESSFUL;
+		}
+	}
+
+	KeClearEvent(event_buffer_readyevent);
+
 	event_serial = 0;
 	event_buffer->active = 0;
 	event_buffer->missing = 0;
