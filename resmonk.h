@@ -5,14 +5,19 @@
 #include "kucomm.h"
 
 /* an htable_entry has 3 status:
- 0. freed: after calling htable_free_entry()
- 1. allocated or removed: after htable_allocate_entry() or htable_remove_entry()
- 2. added: after call htable_add_entry()
+ * 0. allocated     returned by htable_allocate_entry()
+ * 1. added +refc   after calling htable_add_entry() (on lru list and hashtable)
+ * 2. freeing +refc 
+ * 3. freed         (on free_pool list)
  */
+enum htable_entry_status {
+	HTES_ALLOCATED, HTES_ADDED, HTES_FREEING, HTES_FREED
+};
 struct htable_entry {
+	enum htable_entry_status status;
+	int reference_count;
 	LIST_ENTRY list; // for lru and free_pool
 	LIST_ENTRY ht_list; // for hashtable
-	int status;
 	unsigned long pid;
 	HANDLE handle;
 	int name_length;
@@ -23,9 +28,9 @@ extern DRIVER_OBJECT *driver_object;
 extern unsigned long daemon_pid;
 
 struct htable_entry *htable_allocate_entry (void);
-void htable_free_entry (struct htable_entry *entry);
-void htable_add_entry (struct htable_entry *entry);
 struct htable_entry *htable_get_entry (unsigned long pid, HANDLE handle);
+void htable_put_entry (struct htable_entry *entry);
+void htable_add_entry (struct htable_entry *entry);
 void htable_remove_entry (struct htable_entry *entry);
 void htable_remove_process_entries (unsigned long pid);
 NTSTATUS handle_table_init (void);

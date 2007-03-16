@@ -69,7 +69,6 @@ static NTSTATUS resmon_Close   (HANDLE Handle)
 		}
 //		DbgPrint("NtClose(%x, %x)\n", PsGetCurrentProcessId(), Handle);
 		htable_remove_entry(ht_entry);
-		htable_free_entry(ht_entry);
 	}
 
 	return retval;
@@ -113,6 +112,7 @@ static NTSTATUS resmon_CreateKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess
 					htable_entry->name_length * 2);
 			htable_entry->name[htable_entry->name_length] = 0;
 			htable_add_entry(htable_entry);
+			htable_put_entry(htable_entry);
 		}
 	} else {
 		struct htable_entry *parent_entry = htable_get_entry(
@@ -192,7 +192,9 @@ static NTSTATUS resmon_CreateKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess
 							(length - parent_entry->name_length - 1) * 2);
 				new_entry->name[length] = 0;
 				htable_add_entry(new_entry);
+				htable_put_entry(new_entry);
 			}
+			htable_put_entry(parent_entry);
 		} else {
 			if (retval == STATUS_SUCCESS) {
 //				DbgPrint("Opps! it should fail because I can't name the parent.\n");
@@ -230,6 +232,7 @@ static NTSTATUS resmon_DeleteKey   (HANDLE KeyHandle)
 		RtlCopyMemory(event->path, hentry->name, hentry->name_length * 2 + 2);
 		event_buffer_finish_add();
 	}
+	htable_put_entry(hentry);
 
 	return retval;
 }
@@ -301,6 +304,7 @@ static NTSTATUS resmon_DeleteValueKey   (HANDLE KeyHandle, PUNICODE_STRING Value
 			event->path[event->path_length] = 0;
 			event_buffer_finish_add();
 		}
+		htable_put_entry(parent_entry);
 	} else {
 		if (retval == STATUS_SUCCESS) {
 //			DbgPrint("Opps! it should fail because I can't name the parent.\n");
@@ -355,6 +359,7 @@ static NTSTATUS resmon_OpenKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, 
 					htable_entry->name_length * 2);
 			htable_entry->name[htable_entry->name_length] = 0;
 			htable_add_entry(htable_entry);
+			htable_put_entry(htable_entry);
 		}
 	} else {
 		struct htable_entry *parent_entry = htable_get_entry(
@@ -433,7 +438,9 @@ static NTSTATUS resmon_OpenKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, 
 							(length - parent_entry->name_length - 1) * 2);
 				new_entry->name[length] = 0;
 				htable_add_entry(new_entry);
+				htable_put_entry(new_entry);
 			}
+			htable_put_entry(parent_entry);
 		} else {
 			if (retval == STATUS_SUCCESS) {
 //				DbgPrint("Opps! it should fail because I can't name the parent.\n");
@@ -546,6 +553,7 @@ static NTSTATUS resmon_QueryValueKey   (HANDLE KeyHandle, PUNICODE_STRING ValueN
 			event->path[event->path_length] = 0;
 			event_buffer_finish_add();
 		}
+		htable_put_entry(parent_entry);
 	} else {
 		if (retval == STATUS_SUCCESS) {
 //			DbgPrint("Opps! it should fail because I can't name the parent.\n");
@@ -626,6 +634,7 @@ static NTSTATUS resmon_SetValueKey   (HANDLE KeyHandle, PUNICODE_STRING ValueNam
 			event->path[event->path_length] = 0;
 			event_buffer_finish_add();
 		}
+		htable_put_entry(parent_entry);
 	} else {
 		if (retval == STATUS_SUCCESS) {
 //			DbgPrint("Opps! it should fail because I can't name the parent.\n");
