@@ -17,6 +17,7 @@ static int lru_size;
 static LIST_ENTRY hashtable[HASHTABLE_SIZE];
 static FAST_MUTEX mutex;
 
+// assume the entry is ADDED; reference_count is already decreased; lock is acquired
 static void htable_remove_entry_internal (struct htable_entry *entry)
 {
 	ASSERT(entry->status == HTES_ADDED);
@@ -29,12 +30,10 @@ static void htable_remove_entry_internal (struct htable_entry *entry)
 	if (entry->reference_count > 0) {
 		entry->status = HTES_FREEING;
 	} else {
-		entry->status = HTES_FREED;
 		if (free_pool_size >= FREE_POOL_SIZE) {
-			// let it cool down for a while
-			InsertTailList(&free_pool_head, &entry->list);
-			ExFreePoolWithTag(CONTAINING_RECORD(RemoveHeadList(&free_pool_head), struct htable_entry, list), TAG);
+			ExFreePoolWithTag(entry, TAG);
 		} else {
+			entry->status = HTES_FREED;
 			InsertTailList(&free_pool_head, &entry->list);
 			free_pool_size ++;
 		}
@@ -113,12 +112,10 @@ void htable_put_entry (struct htable_entry *entry)
 	out_there --;
 	entry->reference_count --;
 	if (entry->reference_count == 0 && entry->status == HTES_FREEING) {
-		entry->status = HTES_FREED;
 		if (free_pool_size >= FREE_POOL_SIZE) {
-			// let it cool down for a while
-			InsertTailList(&free_pool_head, &entry->list);
-			ExFreePoolWithTag(CONTAINING_RECORD(RemoveHeadList(&free_pool_head), struct htable_entry, list), TAG);
+			ExFreePoolWithTag(entry, TAG);
 		} else {
+			entry->status = HTES_FREED;
 			InsertTailList(&free_pool_head, &entry->list);
 			free_pool_size ++;
 		}
@@ -179,12 +176,10 @@ void htable_remove_entry (struct htable_entry *entry)
 	if (entry->reference_count > 0) {
 		entry->status = HTES_FREEING;
 	} else {
-		entry->status = HTES_FREED;
 		if (free_pool_size >= FREE_POOL_SIZE) {
-			// let it cool down for a while
-			InsertTailList(&free_pool_head, &entry->list);
-			ExFreePoolWithTag(CONTAINING_RECORD(RemoveHeadList(&free_pool_head), struct htable_entry, list), TAG);
+			ExFreePoolWithTag(entry, TAG);
 		} else {
+			entry->status = HTES_FREED;
 			InsertTailList(&free_pool_head, &entry->list);
 			free_pool_size ++;
 		}
