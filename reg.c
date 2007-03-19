@@ -52,11 +52,12 @@ static NTSTATUS (*stock_Close) (HANDLE Handle);
 static NTSTATUS resmon_Close   (HANDLE Handle)
 {
 	NTSTATUS retval = (*stock_Close)(Handle);
-	struct htable_entry *ht_entry = htable_get_entry((unsigned long)PsGetCurrentProcessId(), Handle);
+	struct htable_entry *ht_entry;
 
 	if (KeGetPreviousMode() == KernelMode)
 		return retval;
 
+	ht_entry = htable_get_entry((unsigned long)PsGetCurrentProcessId(), Handle);
 	if (ht_entry != NULL) {
 		struct event *event = event_buffer_start_add();
 		if (event != NULL) {
