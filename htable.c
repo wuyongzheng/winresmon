@@ -8,8 +8,6 @@
 
 #define HASH_HANDLE(pid,handle) (((unsigned int)(pid)) * ((unsigned int)(handle)) % HASHTABLE_SIZE)
 
-static int out_there = 0;
-
 static LIST_ENTRY free_pool_head;
 static int free_pool_size;
 static LIST_ENTRY lru_head;
@@ -88,8 +86,6 @@ struct htable_entry *htable_get_entry (unsigned long pid, HANDLE handle)
 		entry = NULL;
 	}
 	if (entry != NULL) {
-		DbgPrint("htable_get_entry %d -> %d\n", out_there, out_there + 1);
-		out_there ++;
 		ASSERT(entry->status == HTES_ADDED);
 		ASSERT(entry->reference_count >= 0);
 		entry->reference_count ++;
@@ -108,8 +104,6 @@ void htable_put_entry (struct htable_entry *entry)
 	ASSERT(entry->reference_count > 0);
 
 	ExAcquireFastMutex(&mutex);
-	DbgPrint("htable_put_entry %d -> %d\n", out_there, out_there - 1);
-	out_there --;
 	entry->reference_count --;
 	if (entry->reference_count == 0 && entry->status == HTES_FREEING) {
 		if (free_pool_size >= FREE_POOL_SIZE) {
@@ -138,8 +132,6 @@ void htable_add_entry (struct htable_entry *entry)
 	hashval = HASH_HANDLE(entry->pid, entry->handle);
 
 	ExAcquireFastMutex(&mutex);
-	DbgPrint("htable_add_entry %d -> %d\n", out_there, out_there + 1);
-	out_there ++;
 	// remove duplicate key if exists
 	for (curr = hashtable[hashval].Flink; curr != &hashtable[hashval]; curr = curr->Flink) {
 		struct htable_entry *tofree = CONTAINING_RECORD(curr, struct htable_entry, ht_list);
@@ -165,8 +157,6 @@ void htable_remove_entry (struct htable_entry *entry)
 	ASSERT(entry->reference_count > 0);
 
 	ExAcquireFastMutex(&mutex);
-	DbgPrint("htable_remove_entry %d -> %d\n", out_there, out_there - 1);
-	out_there --;
 	entry->reference_count --;
 	if (entry->status == HTES_ADDED) {
 		RemoveEntryList(&entry->list);
