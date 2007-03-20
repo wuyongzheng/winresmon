@@ -77,6 +77,38 @@ struct event {
 			int info_size;
 			union {
 				struct {
+					// FILE_BASIC_INFORMATION
+					LARGE_INTEGER creation_time;
+					LARGE_INTEGER last_access_time;
+					LARGE_INTEGER last_write_time;
+					LARGE_INTEGER change_time;
+					unsigned long file_attributes;
+					// FILE_STANDARD_INFORMATION
+					LARGE_INTEGER allocation_size;
+					LARGE_INTEGER end_of_file;
+					unsigned long number_of_links;
+					int delete_pending;
+					int directory;
+					// FILE_INTERNAL_INFORMATION
+					LARGE_INTEGER index_number;
+					// FILE_EA_INFORMATION
+					unsigned long ea_size;
+					// FILE_ACCESS_INFORMATION
+					ACCESS_MASK access_flags;
+					// FILE_POSITION_INFORMATION
+					LARGE_INTEGER current_byte_offset;
+					// FILE_MODE_INFORMATION
+					unsigned long mode;
+					// FILE_ALIGNMENT_INFORMATION
+					unsigned long alignment_requirement;
+					// FILE_NAME_INFORMATION
+					unsigned long next_entry_offset;
+					unsigned long stream_name_length;
+					LARGE_INTEGER stream_size;
+					LARGE_INTEGER stream_allocation_size;
+					short stream_name[MAX_PATH_SIZE];
+				} file_info_all;
+				struct {
 					LARGE_INTEGER allocation_size;
 				} file_info_allocation;
 				struct {

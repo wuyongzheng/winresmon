@@ -17,7 +17,7 @@ static FLT_PREOP_CALLBACK_STATUS on_pre_op (PFLT_CALLBACK_DATA data, PCFLT_RELAT
 			FLT_FILE_NAME_NORMALIZED | FLT_FILE_NAME_QUERY_ALWAYS_ALLOW_CACHE_LOOKUP,
 			&name_info);
 	if (retval != STATUS_SUCCESS) {
-		DbgPrint("resmon+on_pre_op(%u): FltGetFileNameInformation failed: %x\n", data->Iopb->MajorFunction, retval);
+		//DbgPrint("resmon+on_pre_op(%u): FltGetFileNameInformation failed: %x\n", data->Iopb->MajorFunction, retval);
 		return FLT_PREOP_SUCCESS_NO_CALLBACK;
 	}
 
@@ -63,7 +63,7 @@ static FLT_POSTOP_CALLBACK_STATUS on_post_op (PFLT_CALLBACK_DATA data, PCFLT_REL
 			FLT_FILE_NAME_NORMALIZED | FLT_FILE_NAME_QUERY_ALWAYS_ALLOW_CACHE_LOOKUP,
 			&name_info);
 	if (retval != STATUS_SUCCESS) {
-		DbgPrint("resmon+on_post_op(%u): FltGetFileNameInformation failed: %x\n", data->Iopb->MajorFunction, retval);
+		//DbgPrint("resmon+on_post_op(%u): FltGetFileNameInformation failed: %x\n", data->Iopb->MajorFunction, retval);
 		return FLT_POSTOP_FINISHED_PROCESSING;
 	}
 
@@ -102,10 +102,6 @@ static FLT_POSTOP_CALLBACK_STATUS on_post_op (PFLT_CALLBACK_DATA data, PCFLT_REL
 		event->type = ET_FILE_QUERY_INFORMATION;
 		switch (data->Iopb->Parameters.QueryFileInformation.FileInformationClass) {
 		case FileAllInformation:
-			DbgPrint("resmon: FileAllInformation ignored\n");
-			event_buffer_cancel_add();
-			event = NULL;
-			break;
 		case FileAttributeTagInformation:
 		case FileBasicInformation:
 		case FileCompressionInformation:
@@ -117,7 +113,7 @@ static FLT_POSTOP_CALLBACK_STATUS on_post_op (PFLT_CALLBACK_DATA data, PCFLT_REL
 		case FileStandardInformation:
 		case FileStreamInformation:
 			if (data->IoStatus.Status == STATUS_SUCCESS) {
-				// NOTE: unicode string at the end is not sero terminated
+				// NOTE: unicode string at the end is not zero terminated
 				event->file_info.info_type = data->Iopb->Parameters.QueryFileInformation.FileInformationClass;
 				event->file_info.info_size = data->Iopb->Parameters.QueryFileInformation.Length < sizeof(event->file_info.info_data) ? data->Iopb->Parameters.QueryFileInformation.Length : sizeof(event->file_info.info_data);
 				RtlCopyMemory(&event->file_info.info_data,
@@ -143,7 +139,7 @@ static FLT_POSTOP_CALLBACK_STATUS on_post_op (PFLT_CALLBACK_DATA data, PCFLT_REL
 		case FilePositionInformation:
 		case FileRenameInformation:
 		case FileValidDataLengthInformation:
-			// NOTE: unicode string at the end is not sero terminated
+			// NOTE: unicode string at the end is not zero terminated
 			event->file_info.info_type = data->Iopb->Parameters.SetFileInformation.FileInformationClass;
 			event->file_info.info_size = data->Iopb->Parameters.SetFileInformation.Length < sizeof(event->file_info.info_data) ? data->Iopb->Parameters.SetFileInformation.Length : sizeof(event->file_info.info_data);
 			RtlCopyMemory(&event->file_info.info_data,
