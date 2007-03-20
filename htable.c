@@ -6,7 +6,7 @@
 #define HASHTABLE_SIZE 2007
 #define TAG 0x4d535257l //WRSM
 
-#define HASH_HANDLE(pid,handle) (((unsigned int)(pid)) * ((unsigned int)(handle)) % HASHTABLE_SIZE)
+#define HASH_HANDLE(pid,handle) ((((unsigned int)(pid) << (unsigned int)16) ^ ((unsigned int)(handle))) % (unsigned int)HASHTABLE_SIZE)
 
 static LIST_ENTRY free_pool_head;
 static int free_pool_size;
