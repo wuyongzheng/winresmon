@@ -158,6 +158,9 @@ static NTSTATUS resmon_CreateKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess
 			int length;
 
 			length = parent_entry->name_length + 1 + ObjectAttributes->ObjectName->Length / 2;
+			if (ObjectAttributes->ObjectName->Length == 0 ||
+					ObjectAttributes->ObjectName->Buffer[ObjectAttributes->ObjectName->Length / 2 - 1] == L'\\')
+				length --;
 			if (length >= MAX_PATH_SIZE)
 				length = MAX_PATH_SIZE - 1;
 
@@ -170,13 +173,15 @@ static NTSTATUS resmon_CreateKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess
 				event->reg_create.creation_disposition = (Disposition == NULL ? 0 : *Disposition);
 				event->path_length = length;
 				RtlCopyMemory(event->path, parent_entry->name, parent_entry->name_length * 2);
-				if (length > parent_entry->name_length)
+				if (length > parent_entry->name_length) {
 					event->path[parent_entry->name_length] = L'\\';
-				if (length - parent_entry->name_length - 1 > 0)
-					RtlCopyMemory(event->path + parent_entry->name_length + 1,
-							ObjectAttributes->ObjectName->Buffer,
-							(length - parent_entry->name_length - 1) * 2);
+					if (length - parent_entry->name_length - 1 > 0)
+						RtlCopyMemory(event->path + parent_entry->name_length + 1,
+								ObjectAttributes->ObjectName->Buffer,
+								(length - parent_entry->name_length - 1) * 2);
+				}
 				event->path[length] = 0;
+				DbgPrint("create(\"%S\", \"%S\", \"%S\")\n", parent_entry->name, ObjectAttributes->ObjectName->Buffer, event->path);
 				event_buffer_finish_add();
 			}
 			if (retval == STATUS_SUCCESS) {
@@ -185,12 +190,13 @@ static NTSTATUS resmon_CreateKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess
 				new_entry->handle = *KeyHandle;
 				new_entry->name_length = length;
 				RtlCopyMemory(new_entry->name, parent_entry->name, parent_entry->name_length * 2);
-				if (length > parent_entry->name_length)
+				if (length > parent_entry->name_length) {
 					new_entry->name[parent_entry->name_length] = L'\\';
-				if (length - parent_entry->name_length - 1 > 0)
-					RtlCopyMemory(new_entry->name + parent_entry->name_length + 1,
-							ObjectAttributes->ObjectName->Buffer,
-							(length - parent_entry->name_length - 1) * 2);
+					if (length - parent_entry->name_length - 1 > 0)
+						RtlCopyMemory(new_entry->name + parent_entry->name_length + 1,
+								ObjectAttributes->ObjectName->Buffer,
+								(length - parent_entry->name_length - 1) * 2);
+				}
 				new_entry->name[length] = 0;
 				htable_add_entry(new_entry);
 				htable_put_entry(new_entry);
@@ -406,6 +412,9 @@ static NTSTATUS resmon_OpenKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, 
 			int length;
 
 			length = parent_entry->name_length + 1 + ObjectAttributes->ObjectName->Length / 2;
+			if (ObjectAttributes->ObjectName->Length == 0 ||
+					ObjectAttributes->ObjectName->Buffer[ObjectAttributes->ObjectName->Length / 2 - 1] == L'\\')
+				length --;
 			if (length >= MAX_PATH_SIZE)
 				length = MAX_PATH_SIZE - 1;
 
@@ -416,13 +425,15 @@ static NTSTATUS resmon_OpenKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, 
 				event->reg_open.desired_access = DesiredAccess;
 				event->path_length = length;
 				RtlCopyMemory(event->path, parent_entry->name, parent_entry->name_length * 2);
-				if (length > parent_entry->name_length)
+				if (length > parent_entry->name_length) {
 					event->path[parent_entry->name_length] = L'\\';
-				if (length - parent_entry->name_length - 1 > 0)
-					RtlCopyMemory(event->path + parent_entry->name_length + 1,
-							ObjectAttributes->ObjectName->Buffer,
-							(length - parent_entry->name_length - 1) * 2);
+					if (length - parent_entry->name_length - 1 > 0)
+						RtlCopyMemory(event->path + parent_entry->name_length + 1,
+								ObjectAttributes->ObjectName->Buffer,
+								(length - parent_entry->name_length - 1) * 2);
+				}
 				event->path[length] = 0;
+				DbgPrint("open(\"%S\", \"%S\", \"%S\")\n", parent_entry->name, ObjectAttributes->ObjectName->Buffer, event->path);
 				event_buffer_finish_add();
 			}
 			if (retval == STATUS_SUCCESS) {
@@ -431,12 +442,13 @@ static NTSTATUS resmon_OpenKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, 
 				new_entry->handle = *KeyHandle;
 				new_entry->name_length = length;
 				RtlCopyMemory(new_entry->name, parent_entry->name, parent_entry->name_length * 2);
-				if (length > parent_entry->name_length)
-					new_entry->name[parent_entry->name_length] = L'\\';
-				if (length - parent_entry->name_length - 1 > 0)
-					RtlCopyMemory(new_entry->name + parent_entry->name_length + 1,
-							ObjectAttributes->ObjectName->Buffer,
-							(length - parent_entry->name_length - 1) * 2);
+				if (length > parent_entry->name_length) {
+						new_entry->name[parent_entry->name_length] = L'\\';
+					if (length - parent_entry->name_length - 1 > 0)
+						RtlCopyMemory(new_entry->name + parent_entry->name_length + 1,
+								ObjectAttributes->ObjectName->Buffer,
+								(length - parent_entry->name_length - 1) * 2);
+				}
 				new_entry->name[length] = 0;
 				htable_add_entry(new_entry);
 				htable_put_entry(new_entry);
