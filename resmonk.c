@@ -69,8 +69,8 @@ static void resmonk_stop (void)
 
 static NTSTATUS dispatch_create (PDEVICE_OBJECT DeviceObject, PIRP irp)
 {
-	DbgPrint("resmon: IRP_MJ_CREATE\n");
 	if (daemon_pid) {
+		DbgPrint("resmon: start failed. (already started)\n");
 		irp->IoStatus.Information = 0;
 		irp->IoStatus.Status = STATUS_UNSUCCESSFUL;
 		IoCompleteRequest(irp, IO_NO_INCREMENT);
@@ -78,11 +78,13 @@ static NTSTATUS dispatch_create (PDEVICE_OBJECT DeviceObject, PIRP irp)
 	} else {
 		NTSTATUS retval = resmonk_start();
 		if (retval != STATUS_SUCCESS) {
+			DbgPrint("resmon: start failed.\n");
 			irp->IoStatus.Information = 0;
 			irp->IoStatus.Status = retval;
 			IoCompleteRequest(irp, IO_NO_INCREMENT);
 			return retval;
 		} else {
+			DbgPrint("resmon: started.\n");
 			irp->IoStatus.Information = 0;
 			irp->IoStatus.Status = STATUS_SUCCESS;
 			IoCompleteRequest(irp, IO_NO_INCREMENT);
@@ -93,15 +95,15 @@ static NTSTATUS dispatch_create (PDEVICE_OBJECT DeviceObject, PIRP irp)
 
 static NTSTATUS dispatch_close (PDEVICE_OBJECT DeviceObject, PIRP irp)
 {
-	DbgPrint("resmon: IRP_MJ_CLOSE\n");
 	if (!daemon_pid) {
-		DbgPrint("opps! close without open?\n");
+		DbgPrint("resmon: opps! close without open?\n");
 		irp->IoStatus.Information = 0;
 		irp->IoStatus.Status = STATUS_SUCCESS;
 		IoCompleteRequest(irp, IO_NO_INCREMENT);
 		return STATUS_SUCCESS;
 	} else {
 		resmonk_stop();
+		DbgPrint("resmon: stopped.\n");
 		irp->IoStatus.Information = 0;
 		irp->IoStatus.Status = STATUS_SUCCESS;
 		IoCompleteRequest(irp, IO_NO_INCREMENT);
@@ -114,7 +116,7 @@ static NTSTATUS dispatch_ioctl (PDEVICE_OBJECT DeviceObject, PIRP irp)
 	PIO_STACK_LOCATION irp_stack;
 
 	if (!daemon_pid) {
-		DbgPrint("opps! calling dispatch_ioctl when daemon_pid = 0?\n");
+		DbgPrint("resmon: opps! calling dispatch_ioctl when daemon_pid = 0?\n");
 		irp->IoStatus.Information = 0;
 		irp->IoStatus.Status = STATUS_SUCCESS;
 		IoCompleteRequest(irp, IO_NO_INCREMENT);
@@ -193,14 +195,14 @@ NTSTATUS DriverEntry (PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath)
 			TRUE,
 			&DriverObject->DeviceObject);
 	if(status != STATUS_SUCCESS) {
-		DbgPrint("IoCreateDevice failed\n");
+		DbgPrint("resmon: IoCreateDevice failed\n");
 		return status;
 	}
 
 	RtlInitUnicodeString(&sym_name, L"\\DosDevices\\resmon");
 	status = IoCreateSymbolicLink(&sym_name, &device_name);
 	if(status != STATUS_SUCCESS) {
-		DbgPrint("IoCreateSymbolicLink failed\n");
+		DbgPrint("resmon: IoCreateSymbolicLink failed\n");
 		IoDeleteDevice(DriverObject->DeviceObject);
 		return status;
 	}
