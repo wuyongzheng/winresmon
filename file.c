@@ -3,9 +3,14 @@
 
 static PFLT_FILTER filter = NULL;
 
-static FLT_PREOP_CALLBACK_STATUS on_pre_op (PFLT_CALLBACK_DATA data, PCFLT_RELATED_OBJECTS fltobj, PVOID *context)
+/* The original path before FileRenameInformation.
+ * Assume renaming is performed infrequently and no two process call rename at the same time.
+ * If there is race condition, too bad, we get junk */
+static int saved_original_path_length;
+static short saved_original_path[MAX_PATH_SIZE]; // always '\0' terminated
+
+static FLT_PREOP_CALLBACK_STATUS on_pre_close (PFLT_CALLBACK_DATA data, PCFLT_RELATED_OBJECTS fltobj, PVOID *context)
 {
-	NTSTATUS retval;
 	FLT_FILE_NAME_INFORMATION *name_info;
 	struct event *event;
 
@@ -13,31 +18,16 @@ static FLT_PREOP_CALLBACK_STATUS on_pre_op (PFLT_CALLBACK_DATA data, PCFLT_RELAT
 		return FLT_PREOP_SUCCESS_NO_CALLBACK;
 
 	name_info = NULL;
-	retval = FltGetFileNameInformation(data,
-			FLT_FILE_NAME_NORMALIZED | FLT_FILE_NAME_QUERY_ALWAYS_ALLOW_CACHE_LOOKUP,
-			&name_info);
-	if (retval != STATUS_SUCCESS) {
-		//DbgPrint("resmon+on_pre_op(%u): FltGetFileNameInformation failed: %x\n", data->Iopb->MajorFunction, retval);
+	if(FltGetFileNameInformation(data,
+				FLT_FILE_NAME_NORMALIZED | FLT_FILE_NAME_QUERY_ALWAYS_ALLOW_CACHE_LOOKUP,
+				&name_info) != STATUS_SUCCESS) {
+		//DbgPrint("resmon+on_pre_close(%u): FltGetFileNameInformation failed: %x\n", data->Iopb->MajorFunction, retval);
 		return FLT_PREOP_SUCCESS_NO_CALLBACK;
 	}
 
 	event = event_buffer_start_add();
-	if (event == NULL) {
-		FltReleaseFileNameInformation(name_info);
-		return FLT_PREOP_SUCCESS_NO_CALLBACK;
-	}
-
-	switch (data->Iopb->MajorFunction) {
-	case IRP_MJ_CLOSE:
-		event->type = ET_FILE_CLOSE;
-		break;
-	default:
-		DbgPrint("resmon: unknown pre MajorFunction %d\n", data->Iopb->MajorFunction);
-		event_buffer_cancel_add();
-		event = NULL;
-	}
-
 	if (event != NULL) {
+		event->type = ET_FILE_CLOSE;
 		event->status = 0;
 		event->path_length = MAX_PATH_SIZE - 1 < name_info->Name.Length / 2 ? MAX_PATH_SIZE - 1 : name_info->Name.Length / 2;
 		RtlCopyMemory(event->path, name_info->Name.Buffer, event->path_length * 2);
@@ -47,6 +37,28 @@ static FLT_PREOP_CALLBACK_STATUS on_pre_op (PFLT_CALLBACK_DATA data, PCFLT_RELAT
 
 	FltReleaseFileNameInformation(name_info);
 	return FLT_PREOP_SUCCESS_NO_CALLBACK;
+}
+
+static FLT_PREOP_CALLBACK_STATUS on_pre_set_info (PFLT_CALLBACK_DATA data, PCFLT_RELATED_OBJECTS fltobj, PVOID *context)
+{
+	FLT_FILE_NAME_INFORMATION *name_info;
+
+	if (data->RequestorMode == KernelMode || KeGetCurrentIrql() > APC_LEVEL || fltobj->FileObject == NULL)
+		return FLT_PREOP_SUCCESS_NO_CALLBACK;
+	if (data->Iopb->Parameters.SetFileInformation.FileInformationClass != FileRenameInformation)
+		return FLT_PREOP_SUCCESS_WITH_CALLBACK;
+
+	name_info = NULL;
+	if (FltGetFileNameInformation(data,
+				FLT_FILE_NAME_NORMALIZED | FLT_FILE_NAME_QUERY_ALWAYS_ALLOW_CACHE_LOOKUP,
+				&name_info) == STATUS_SUCCESS) {
+		saved_original_path_length = MAX_PATH_SIZE - 1 < name_info->Name.Length / 2 ? MAX_PATH_SIZE - 1 : name_info->Name.Length / 2;
+		RtlCopyMemory(saved_original_path, name_info->Name.Buffer, saved_original_path_length * 2);
+		saved_original_path[saved_original_path_length] = 0;
+		FltReleaseFileNameInformation(name_info);
+	}
+
+	return FLT_PREOP_SUCCESS_WITH_CALLBACK;
 }
 
 static FLT_POSTOP_CALLBACK_STATUS on_post_op (PFLT_CALLBACK_DATA data, PCFLT_RELATED_OBJECTS fltobj, PVOID context, FLT_POST_OPERATION_FLAGS flags)
@@ -161,9 +173,15 @@ static FLT_POSTOP_CALLBACK_STATUS on_post_op (PFLT_CALLBACK_DATA data, PCFLT_REL
 
 	if (event != NULL) {
 		event->status = data->IoStatus.Status;
-		event->path_length = MAX_PATH_SIZE - 1 < name_info->Name.Length / 2 ? MAX_PATH_SIZE - 1 : name_info->Name.Length / 2;
-		RtlCopyMemory(event->path, name_info->Name.Buffer, event->path_length * 2);
-		event->path[event->path_length] = 0;
+		if (data->Iopb->MajorFunction == IRP_MJ_SET_INFORMATION &&
+				data->Iopb->Parameters.SetFileInformation.FileInformationClass == FileRenameInformation) {
+			event->path_length = saved_original_path_length;
+			RtlCopyMemory(event->path, saved_original_path, (saved_original_path_length + 1) * 2);
+		} else {
+			event->path_length = MAX_PATH_SIZE - 1 < name_info->Name.Length / 2 ? MAX_PATH_SIZE - 1 : name_info->Name.Length / 2;
+			RtlCopyMemory(event->path, name_info->Name.Buffer, event->path_length * 2);
+			event->path[event->path_length] = 0;
+		}
 		event_buffer_finish_add();
 	}
 
@@ -176,7 +194,7 @@ NTSTATUS file_start (void)
 	NTSTATUS retval;
 	const static FLT_OPERATION_REGISTRATION callbacks[] = {
 //		{IRP_MJ_CLEANUP,                             0, NULL, on_post_op, NULL},
-		{IRP_MJ_CLOSE,                               0, on_pre_op, NULL, NULL},
+		{IRP_MJ_CLOSE,                               0, on_pre_close, NULL, NULL},
 		{IRP_MJ_CREATE,                              0, NULL, on_post_op, NULL},
 		{IRP_MJ_CREATE_MAILSLOT,                     0, NULL, on_post_op, NULL},
 		{IRP_MJ_CREATE_NAMED_PIPE,                   0, NULL, on_post_op, NULL},
@@ -194,7 +212,7 @@ NTSTATUS file_start (void)
 //		{IRP_MJ_QUERY_VOLUME_INFORMATION,            0, NULL, on_post_op, NULL},
 		{IRP_MJ_READ,                                0, NULL, on_post_op, NULL},
 //		{IRP_MJ_SET_EA,                              0, NULL, on_post_op, NULL},
-		{IRP_MJ_SET_INFORMATION,                     0, NULL, on_post_op, NULL},
+		{IRP_MJ_SET_INFORMATION,                     0, on_pre_set_info, on_post_op, NULL},
 //		{IRP_MJ_SET_QUOTA,                           0, NULL, on_post_op, NULL},
 //		{IRP_MJ_SET_SECURITY,                        0, NULL, on_post_op, NULL},
 //		{IRP_MJ_SET_VOLUME_INFORMATION,              0, NULL, on_post_op, NULL},
