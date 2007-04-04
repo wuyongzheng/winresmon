@@ -181,7 +181,6 @@ static NTSTATUS resmon_CreateKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess
 								(length - parent_entry->name_length - 1) * 2);
 				}
 				event->path[length] = 0;
-				DbgPrint("create(\"%S\", \"%S\", \"%S\")\n", parent_entry->name, ObjectAttributes->ObjectName->Buffer, event->path);
 				event_buffer_finish_add();
 			}
 			if (retval == STATUS_SUCCESS) {
@@ -433,7 +432,6 @@ static NTSTATUS resmon_OpenKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, 
 								(length - parent_entry->name_length - 1) * 2);
 				}
 				event->path[length] = 0;
-				DbgPrint("open(\"%S\", \"%S\", \"%S\")\n", parent_entry->name, ObjectAttributes->ObjectName->Buffer, event->path);
 				event_buffer_finish_add();
 			}
 			if (retval == STATUS_SUCCESS) {
