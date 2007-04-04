@@ -3,6 +3,59 @@
 #include <stdio.h>
 #include "kucomm.h"
 
+typedef enum _FILE_INFORMATION_CLASS {
+	FileDirectoryInformation         = 1,
+	FileFullDirectoryInformation,   // 2
+	FileBothDirectoryInformation,   // 3
+	FileBasicInformation,           // 4
+	FileStandardInformation,        // 5
+	FileInternalInformation,        // 6
+	FileEaInformation,              // 7
+	FileAccessInformation,          // 8
+	FileNameInformation,            // 9
+	FileRenameInformation,          // 10
+	FileLinkInformation,            // 11
+	FileNamesInformation,           // 12
+	FileDispositionInformation,     // 13
+	FilePositionInformation,        // 14
+	FileFullEaInformation,          // 15
+	FileModeInformation,            // 16
+	FileAlignmentInformation,       // 17
+	FileAllInformation,             // 18
+	FileAllocationInformation,      // 19
+	FileEndOfFileInformation,       // 20
+	FileAlternateNameInformation,   // 21
+	FileStreamInformation,          // 22
+	FilePipeInformation,            // 23
+	FilePipeLocalInformation,       // 24
+	FilePipeRemoteInformation,      // 25
+	FileMailslotQueryInformation,   // 26
+	FileMailslotSetInformation,     // 27
+	FileCompressionInformation,     // 28
+	FileObjectIdInformation,        // 29
+	FileCompletionInformation,      // 30
+	FileMoveClusterInformation,     // 31
+	FileQuotaInformation,           // 32
+	FileReparsePointInformation,    // 33
+	FileNetworkOpenInformation,     // 34
+	FileAttributeTagInformation,    // 35
+	FileTrackingInformation,        // 36
+	FileIdBothDirectoryInformation, // 37
+	FileIdFullDirectoryInformation, // 38
+	FileValidDataLengthInformation, // 39
+	FileShortNameInformation,       // 40
+	FileIoCompletionNotificationInformation, // 41
+	FileIoStatusBlockRangeInformation,       // 42
+	FileIoPriorityHintInformation,           // 43
+	FileSfioReserveInformation,              // 44
+	FileSfioVolumeInformation,               // 45
+	FileHardLinkInformation,                 // 46
+	FileProcessIdsUsingFileInformation,      // 47
+	FileNormalizedNameInformation,           // 48
+	FileNetworkPhysicalNameInformation,      // 49
+	FileMaximumInformation
+} FILE_INFORMATION_CLASS, *PFILE_INFORMATION_CLASS;
+
 extern const char *get_ntstatus_name (long status);
 
 void process_event (const struct event *event)
@@ -34,10 +87,146 @@ void process_event (const struct event *event)
 		printf("pipe: \"%S\"\n", event->path);
 		break;
 	case ET_FILE_QUERY_INFORMATION:
-		printf("queryinfo: t=%d s=%d \"%S\"\n", event->file_info.info_type, event->file_info.info_size, event->path);
+		switch (event->file_info.info_type) {
+		case FileAllInformation: // TODO
+			printf("queryinfo: t=FileAllInformation s=%d \"%S\"\n",
+					event->file_info.info_size,
+					event->path);
+			break;
+		case FileAttributeTagInformation:
+			printf("queryinfo: t=FileAttributeTagInformation attr=0x%x tag=0x%x \"%S\"\n",
+					event->file_info.info_data.file_info_attribute_tag.file_attributes,
+					event->file_info.info_data.file_info_attribute_tag.reparse_tag,
+					event->path);
+			break;
+		case FileBasicInformation:
+			printf("queryinfo: t=FileBasicInformation ct=%I64u lat=%I64u lwt=%I64u lct=%I64u attr=0x%x \"%S\"\n",
+					event->file_info.info_data.file_info_basic.creation_time,
+					event->file_info.info_data.file_info_basic.last_access_time,
+					event->file_info.info_data.file_info_basic.last_write_time,
+					event->file_info.info_data.file_info_basic.change_time,
+					event->file_info.info_data.file_info_basic.file_attributes,
+					event->path);
+			break;
+		case FileCompressionInformation:
+			printf("queryinfo: t=FileCompressionInformation size=%I64u format=%d unit=%d chunk=%d cluster=%d reserved=%d,%d,%d \"%S\"\n",
+					event->file_info.info_data.file_info_compression.compressed_file_size,
+					event->file_info.info_data.file_info_compression.compression_format,
+					event->file_info.info_data.file_info_compression.compression_unit_shift,
+					event->file_info.info_data.file_info_compression.chunk_shift,
+					event->file_info.info_data.file_info_compression.cluster_shift,
+					event->file_info.info_data.file_info_compression.reserved[0],
+					event->file_info.info_data.file_info_compression.reserved[1],
+					event->file_info.info_data.file_info_compression.reserved[2],
+					event->path);
+			break;
+		case FileEaInformation:
+			printf("queryinfo: t=FileEaInformation size=%d \"%S\"\n",
+					event->file_info.info_data.file_info_ea.ea_size,
+					event->path);
+			break;
+		case FileInternalInformation:
+			printf("queryinfo: t=FileInternalInformation index=%I64u \"%S\"\n",
+					event->file_info.info_data.file_info_internal.index_number,
+					event->path);
+			break;
+		case FileNameInformation:
+			printf("queryinfo: t=FileNameInformation name=\"%S\" \"%S\"\n",
+					event->file_info.info_data.file_info_name.file_name,
+					event->path);
+			break;
+		case FileNetworkOpenInformation:
+			printf("queryinfo: t=FileNetworkOpenInformation ct=%I64u lat=%I64u lwt=%I64u lct=%I64u as=%I64u eof=%I64u attr=0x%x \"%S\"\n",
+					event->file_info.info_data.file_info_network_open.creation_time,
+					event->file_info.info_data.file_info_network_open.last_access_time,
+					event->file_info.info_data.file_info_network_open.last_write_time,
+					event->file_info.info_data.file_info_network_open.change_time,
+					event->file_info.info_data.file_info_network_open.allocation_size,
+					event->file_info.info_data.file_info_network_open.end_of_file,
+					event->file_info.info_data.file_info_network_open.file_attributes,
+					event->path);
+			break;
+		case FilePositionInformation:
+			printf("queryinfo: t=FilePositionInformation pos=%I64u \"%S\"\n",
+					event->file_info.info_data.file_info_position.current_byte_offset,
+					event->path);
+			break;
+		case FileStandardInformation:
+			printf("queryinfo: t=FileStandardInformation as=%I64u eof=%I64u links=%d delete=%s dir=%s \"%S\"\n",
+					event->file_info.info_data.file_info_standard.allocation_size,
+					event->file_info.info_data.file_info_standard.end_of_file,
+					event->file_info.info_data.file_info_standard.number_of_links,
+					event->file_info.info_data.file_info_standard.delete_pending ? "true" : "false",
+					event->file_info.info_data.file_info_standard.directory ? "true" : "false",
+					event->path);
+			break;
+		case FileStreamInformation:
+			printf("queryinfo: t=FileStreamInformation next=%lu size=%I64u as=%I64u name=\"%S\" \"%S\"\n",
+					event->file_info.info_data.file_info_stream.next_entry_offset,
+					event->file_info.info_data.file_info_stream.stream_size,
+					event->file_info.info_data.file_info_stream.stream_allocation_size,
+					event->file_info.info_data.file_info_stream.stream_name,
+					event->path);
+			break;
+		default:
+			printf("queryinfo: t=%d s=%d \"%S\"\n",
+					event->file_info.info_type, event->file_info.info_size, event->path);
+		}
 		break;
 	case ET_FILE_SET_INFORMATION:
-		printf("setinfo: t=%d s=%d \"%S\"\n", event->file_info.info_type, event->file_info.info_size, event->path);
+		switch (event->file_info.info_type) {
+		case FileAllocationInformation:
+			printf("setinfo: t=FileAllocationInformation AllocationSize=%I64u \"%S\"\n",
+					event->file_info.info_data.file_info_allocation.allocation_size,
+					event->path);
+			break;
+		case FileBasicInformation:
+			printf("setinfo: t=FileBasicInformation ct=%I64u lat=%I64u lwt=%I64u lct=%I64u attr=0x%x \"%S\"\n",
+					event->file_info.info_data.file_info_basic.creation_time,
+					event->file_info.info_data.file_info_basic.last_access_time,
+					event->file_info.info_data.file_info_basic.last_write_time,
+					event->file_info.info_data.file_info_basic.change_time,
+					event->file_info.info_data.file_info_basic.file_attributes,
+					event->path);
+			break;
+		case FileDispositionInformation:
+			printf("setinfo: t=FileDispositionInformation delete=%s \"%S\"\n",
+					event->file_info.info_data.file_info_disposition.delete_file ? "true" : "false",
+					event->path);
+			break;
+		case FileEndOfFileInformation:
+			printf("setinfo: t=FileEndOfFileInformation end=%I64u \"%S\"\n",
+					event->file_info.info_data.file_info_end_of_file.end_of_file,
+					event->path);
+			break;
+		case FileLinkInformation:
+			printf("setinfo: t=FileLinkInformation replace=%s root=0x%x name=\"%S\" \"%S\"\n",
+					event->file_info.info_data.file_info_link.replace_if_exists ? "true" : "false",
+					event->file_info.info_data.file_info_link.root_directory,
+					event->file_info.info_data.file_info_link.file_name,
+					event->path);
+			break;
+		case FilePositionInformation:
+			printf("setinfo: t=FilePositionInformation pos=%I64u \"%S\"\n",
+					event->file_info.info_data.file_info_position.current_byte_offset,
+					event->path);
+			break;
+		case FileRenameInformation:
+			printf("setinfo: t=FileRenameInformation replace=%s root=%x name=\"%S\" \"%S\"\n",
+					event->file_info.info_data.file_info_rename.replace_if_exists ? "true" : "false",
+					event->file_info.info_data.file_info_rename.root_directory,
+					event->file_info.info_data.file_info_rename.file_name,
+					event->path);
+			break;
+		case FileValidDataLengthInformation:
+			printf("setinfo: t=FileValidDataLengthInformation len=%I64u \"%S\"\n",
+					event->file_info.info_data.file_info_valid_data_length.valid_data_length,
+					event->path);
+			break;
+		default:
+			printf("setinfo: t=%d s=%d \"%S\"\n",
+					event->file_info.info_type, event->file_info.info_size, event->path);
+		}
 		break;
 	case ET_REG_CLOSE:
 		printf("reg_close: %x \"%S\"\n", event->reg_close.handle, event->path);
