@@ -114,55 +114,70 @@ static FLT_POSTOP_CALLBACK_STATUS on_post_op (PFLT_CALLBACK_DATA data, PCFLT_REL
 		event->type = ET_FILE_QUERY_INFORMATION;
 		switch (data->Iopb->Parameters.QueryFileInformation.FileInformationClass) {
 		case FileAllInformation:
-		case FileAttributeTagInformation:
-		case FileBasicInformation:
-		case FileCompressionInformation:
-		case FileEaInformation:
-		case FileInternalInformation:
+			if (data->IoStatus.Status == STATUS_SUCCESS) {
+				event->file_info.info_type = data->Iopb->Parameters.QueryFileInformation.FileInformationClass;
+				event->file_info.info_size = data->Iopb->Parameters.QueryFileInformation.Length < sizeof(event->file_info.info_data) ? data->Iopb->Parameters.QueryFileInformation.Length : sizeof(event->file_info.info_data);
+				RtlCopyMemory(&event->file_info.info_data,
+						data->Iopb->Parameters.QueryFileInformation.InfoBuffer,
+						event->file_info.info_size);
+				event->file_info.info_data.file_info_all.stream_name[MAX_PATH_SIZE - 1 < event->file_info.info_data.file_info_all.stream_name_length / 2 ? MAX_PATH_SIZE - 1 : event->file_info.info_data.file_info_all.stream_name_length / 2] = 0;
+			}
+			break;
 		case FileNameInformation:
-		case FileNetworkOpenInformation:
-		case FilePositionInformation:
-		case FileStandardInformation:
+			if (data->IoStatus.Status == STATUS_SUCCESS) {
+				event->file_info.info_type = data->Iopb->Parameters.QueryFileInformation.FileInformationClass;
+				event->file_info.info_size = data->Iopb->Parameters.QueryFileInformation.Length < sizeof(event->file_info.info_data) ? data->Iopb->Parameters.QueryFileInformation.Length : sizeof(event->file_info.info_data);
+				RtlCopyMemory(&event->file_info.info_data,
+						data->Iopb->Parameters.QueryFileInformation.InfoBuffer,
+						event->file_info.info_size);
+				event->file_info.info_data.file_info_name.file_name[MAX_PATH_SIZE - 1 < event->file_info.info_data.file_info_name.file_name_length / 2 ? MAX_PATH_SIZE - 1 : event->file_info.info_data.file_info_name.file_name_length / 2] = 0;
+			}
+			break;
 		case FileStreamInformation:
 			if (data->IoStatus.Status == STATUS_SUCCESS) {
-				// NOTE: unicode string at the end is not zero terminated
+				event->file_info.info_type = data->Iopb->Parameters.QueryFileInformation.FileInformationClass;
+				event->file_info.info_size = data->Iopb->Parameters.QueryFileInformation.Length < sizeof(event->file_info.info_data) ? data->Iopb->Parameters.QueryFileInformation.Length : sizeof(event->file_info.info_data);
+				RtlCopyMemory(&event->file_info.info_data,
+						data->Iopb->Parameters.QueryFileInformation.InfoBuffer,
+						event->file_info.info_size);
+				event->file_info.info_data.file_info_stream.stream_name[MAX_PATH_SIZE - 1 < event->file_info.info_data.file_info_stream.stream_name_length / 2 ? MAX_PATH_SIZE - 1 : event->file_info.info_data.file_info_stream.stream_name_length / 2] = 0;
+			}
+			break;
+		default:
+			if (data->IoStatus.Status == STATUS_SUCCESS) {
 				event->file_info.info_type = data->Iopb->Parameters.QueryFileInformation.FileInformationClass;
 				event->file_info.info_size = data->Iopb->Parameters.QueryFileInformation.Length < sizeof(event->file_info.info_data) ? data->Iopb->Parameters.QueryFileInformation.Length : sizeof(event->file_info.info_data);
 				RtlCopyMemory(&event->file_info.info_data,
 						data->Iopb->Parameters.QueryFileInformation.InfoBuffer,
 						event->file_info.info_size);
 			}
-			break;
-		default:
-			DbgPrint("resmon: unknown FileInformationClass %d in IRP_MJ_QUERY_INFORMATION\n",
-					data->Iopb->Parameters.QueryFileInformation.FileInformationClass);
-			event_buffer_cancel_add();
-			event = NULL;
 		}
 		break;
 	case IRP_MJ_SET_INFORMATION:
 		event->type = ET_FILE_SET_INFORMATION;
 		switch (data->Iopb->Parameters.SetFileInformation.FileInformationClass) {
-		case FileAllocationInformation:
-		case FileBasicInformation:
-		case FileDispositionInformation:
-		case FileEndOfFileInformation:
 		case FileLinkInformation:
-		case FilePositionInformation:
-		case FileRenameInformation:
-		case FileValidDataLengthInformation:
-			// NOTE: unicode string at the end is not zero terminated
 			event->file_info.info_type = data->Iopb->Parameters.SetFileInformation.FileInformationClass;
 			event->file_info.info_size = data->Iopb->Parameters.SetFileInformation.Length < sizeof(event->file_info.info_data) ? data->Iopb->Parameters.SetFileInformation.Length : sizeof(event->file_info.info_data);
 			RtlCopyMemory(&event->file_info.info_data,
 					data->Iopb->Parameters.SetFileInformation.InfoBuffer,
 					event->file_info.info_size);
+			event->file_info.info_data.file_info_link.file_name[MAX_PATH_SIZE - 1 < event->file_info.info_data.file_info_link.file_name_length / 2 ? MAX_PATH_SIZE - 1 : event->file_info.info_data.file_info_link.file_name_length / 2] = 0;
+			break;
+		case FileRenameInformation:
+			event->file_info.info_type = data->Iopb->Parameters.SetFileInformation.FileInformationClass;
+			event->file_info.info_size = data->Iopb->Parameters.SetFileInformation.Length < sizeof(event->file_info.info_data) ? data->Iopb->Parameters.SetFileInformation.Length : sizeof(event->file_info.info_data);
+			RtlCopyMemory(&event->file_info.info_data,
+					data->Iopb->Parameters.SetFileInformation.InfoBuffer,
+					event->file_info.info_size);
+			event->file_info.info_data.file_info_rename.file_name[MAX_PATH_SIZE - 1 < event->file_info.info_data.file_info_rename.file_name_length / 2 ? MAX_PATH_SIZE - 1 : event->file_info.info_data.file_info_rename.file_name_length / 2] = 0;
 			break;
 		default:
-			DbgPrint("resmon: unknown FileInformationClass %d in IRP_MJ_SET_INFORMATION\n",
-					data->Iopb->Parameters.SetFileInformation.FileInformationClass);
-			event_buffer_cancel_add();
-			event = NULL;
+			event->file_info.info_type = data->Iopb->Parameters.SetFileInformation.FileInformationClass;
+			event->file_info.info_size = data->Iopb->Parameters.SetFileInformation.Length < sizeof(event->file_info.info_data) ? data->Iopb->Parameters.SetFileInformation.Length : sizeof(event->file_info.info_data);
+			RtlCopyMemory(&event->file_info.info_data,
+					data->Iopb->Parameters.SetFileInformation.InfoBuffer,
+					event->file_info.info_size);
 		}
 		break;
 	default:
