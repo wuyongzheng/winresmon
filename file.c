@@ -14,7 +14,8 @@ static FLT_PREOP_CALLBACK_STATUS on_pre_close (PFLT_CALLBACK_DATA data, PCFLT_RE
 	FLT_FILE_NAME_INFORMATION *name_info;
 	struct event *event;
 
-	if (data->RequestorMode == KernelMode || KeGetCurrentIrql() > APC_LEVEL || fltobj->FileObject == NULL)
+	// the condition (data->RequestorMode == KernelMode) is removed because it's always false.
+	if (KeGetCurrentIrql() > APC_LEVEL || fltobj->FileObject == NULL)
 		return FLT_PREOP_SUCCESS_NO_CALLBACK;
 
 	name_info = NULL;
