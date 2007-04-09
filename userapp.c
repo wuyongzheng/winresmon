@@ -301,7 +301,7 @@ void process_event (const struct event *event)
 					event->reg_rw.value);
 			break;
 		case REG_SZ:
-			printf("reg_%svalue:" FIELD_SEP "\"%S\"" FIELD_SEP "t=REG_EXPAND_SZ" FIELD_SEP "l=%d" FIELD_SEP "v=\"%S\"\n",
+			printf("reg_%svalue:" FIELD_SEP "\"%S\"" FIELD_SEP "t=REG_SZ" FIELD_SEP "l=%d" FIELD_SEP "v=\"%S\"\n",
 					event->type == ET_REG_QUERYVALUE ? "query" : "set",
 					event->path,
 					event->reg_rw.value_length,
@@ -316,12 +316,12 @@ void process_event (const struct event *event)
 		}
 		break;
 	case ET_PROC_PROC_CREATE:
-		printf("proc_create:" FIELD_SEP "ppid=%d," FIELD_SEP "pid=%d\n",
+		printf("proc_create:" FIELD_SEP "ppid=%d" FIELD_SEP "pid=%d\n",
 				event->proc_proc_create.ppid,
 				event->proc_proc_create.pid);
 		break;
 	case ET_PROC_PROC_TERM:
-		printf("proc_term:" FIELD_SEP "ppid=%d," FIELD_SEP "pid=%d\n",
+		printf("proc_term:" FIELD_SEP "ppid=%d" FIELD_SEP "pid=%d\n",
 				event->proc_proc_term.ppid,
 				event->proc_proc_term.pid);
 		break;
