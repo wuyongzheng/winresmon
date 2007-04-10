@@ -65,7 +65,7 @@ void process_event (const struct event *event)
 	if (event->type == ET_IGNORE)
 		return;
 
-	printf("%u" FIELD_SEP "%I64u" FIELD_SEP "%5d" FIELD_SEP "%5d" FIELD_SEP "%s" FIELD_SEP,
+	printf("%u" FIELD_SEP "%I64u" FIELD_SEP "%d" FIELD_SEP "%d" FIELD_SEP "%s" FIELD_SEP,
 			event->serial,
 			event->time.QuadPart,
 			event->pid,
