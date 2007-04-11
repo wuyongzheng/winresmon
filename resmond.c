@@ -1,5 +1,6 @@
 #include <windows.h>
 #include <winioctl.h>
+#include <psapi.h>
 #include <stdio.h>
 #include "kucomm.h"
 
@@ -8,6 +9,7 @@
 #define fprintf gzprintf
 #endif
 
+#define PHASH_SIZE 2046
 #define FIELD_SEP "\t"
 #define PARAM_SEP ", "
 
@@ -66,6 +68,13 @@ typedef enum _FILE_INFORMATION_CLASS {
 
 extern const char *get_ntstatus_name (long status);
 
+struct proc_info {
+	struct proc_info *next;
+	unsigned long pid;
+	char name[MAX_PATH_SIZE];
+	char owner[MAX_PATH_SIZE];
+};
+
 static HANDLE stop_event;
 static HANDLE driver_file;
 static HANDLE ready_event;
@@ -76,17 +85,98 @@ static gzFile out_file;
 #else
 static FILE *out_file;
 #endif
+static struct proc_info *proc_hashtable[PHASH_SIZE];
 
-void process_event (const struct event *event)
+static void phash_remove (unsigned long pid)
 {
+	struct proc_info *proc = proc_hashtable[pid % PHASH_SIZE];
+
+	if (proc == NULL)
+		return;
+	if (proc->pid == pid) {
+		proc_hashtable[pid % PHASH_SIZE] = proc->next;
+		free(proc);
+		return;
+	}
+	for (; proc->next != NULL; proc = proc->next) {
+		if (proc->next->pid == pid) {
+			struct proc_info *tmp = proc->next;
+			proc->next = tmp->next;
+			free(tmp);
+			return;
+		}
+	}
+}
+
+static void phash_query (struct proc_info *proc)
+{
+	HANDLE process, token;
+	char owner_buffer[16384];
+	TOKEN_OWNER *owner = (TOKEN_OWNER *)owner_buffer;
+	int owner_size;
+	char account[256], domain[256];
+	int account_size = sizeof(account), domain_size = sizeof(domain);
+	SID_NAME_USE type;
+
+	proc->name[0] = proc->owner[0] = '\0';
+
+	process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, proc->pid);
+	if (process == NULL)
+		return;
+
+	if (!GetModuleFileNameEx(process, NULL, proc->name, sizeof(proc->name)))
+		proc->name[0] = '\0';
+
+	if (OpenProcessToken(process, TOKEN_QUERY, &token)) {
+		if (GetTokenInformation(token, TokenOwner, owner, sizeof(owner_buffer), &owner_size)) {
+			if (LookupAccountSid(NULL, owner->Owner, account, &account_size, domain, &domain_size, &type)) {
+				sprintf_s(proc->owner, sizeof(proc->owner), "%s\\%s", domain, account);
+			}
+		}
+	}
+}
+
+static struct proc_info *phash_get (unsigned long pid)
+{
+	struct proc_info *curr;
+
+	for (curr = proc_hashtable[pid % PHASH_SIZE]; curr != NULL; curr = curr->next)
+		if (curr->pid == pid)
+			return curr;
+
+	curr = (struct proc_info *)malloc(sizeof(struct proc_info));
+	curr->pid = pid;
+	curr->next = proc_hashtable[pid % PHASH_SIZE];
+	proc_hashtable[pid % PHASH_SIZE] = curr;
+	phash_query(curr);
+
+	return curr;
+}
+
+static void phash_init (void)
+{
+	int i;
+
+	for (i = 0; i < PHASH_SIZE; i ++)
+		proc_hashtable[i] = NULL;
+}
+
+static void process_event (const struct event *event)
+{
+	struct proc_info *proc;
+
 	if (event->type == ET_IGNORE)
 		return;
 
-	fprintf(out_file, "%u" FIELD_SEP "%I64u" FIELD_SEP "%d" FIELD_SEP "%d" FIELD_SEP "%s" FIELD_SEP,
+	proc = phash_get(event->pid);
+
+	fprintf(out_file, "%u" FIELD_SEP "%I64u" FIELD_SEP "%d" FIELD_SEP "%d" FIELD_SEP "%s" FIELD_SEP "%s" FIELD_SEP "%s" FIELD_SEP,
 			event->serial,
 			event->time.QuadPart,
 			event->pid,
 			event->tid,
+			proc->name,
+			proc->owner,
 			get_ntstatus_name(event->status));
 
 	switch (event->type) {
@@ -341,6 +431,7 @@ void process_event (const struct event *event)
 		fprintf(out_file, "proc_term" FIELD_SEP "" FIELD_SEP "ppid=%d" PARAM_SEP "pid=%d\n",
 				event->proc_proc_term.ppid,
 				event->proc_proc_term.pid);
+		phash_remove(event->pid);
 		break;
 	case ET_PROC_THREAD_CREATE:
 		fprintf(out_file, "thread_create" FIELD_SEP "" FIELD_SEP "tid=%d\n",
@@ -439,6 +530,8 @@ static DWORD service_init (void)
 		OutputDebugString("CreateEvent() failed.\n");
 		return retval;
 	}
+
+	phash_init();
 
 	return 0;
 }
