@@ -133,7 +133,10 @@ static void phash_query (struct proc_info *proc)
 				sprintf_s(proc->owner, sizeof(proc->owner), "%s\\%s", domain, account);
 			}
 		}
+		CloseHandle(token);
 	}
+
+	CloseHandle(process);
 }
 
 static struct proc_info *phash_get (unsigned long pid)
@@ -156,9 +159,65 @@ static struct proc_info *phash_get (unsigned long pid)
 static void phash_init (void)
 {
 	int i;
+	HANDLE hToken;
+	TOKEN_PRIVILEGES tokenPriv;
+	LUID luidDebug;
 
 	for (i = 0; i < PHASH_SIZE; i ++)
 		proc_hashtable[i] = NULL;
+
+	if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &hToken)) {
+		OutputDebugString("OpenProcessToken(curr) error.\n");
+		return;
+	}
+
+	if (!LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &luidDebug)) {
+		OutputDebugString("LookupPrivilegeValue() error.\n");
+		CloseHandle(hToken);
+		return;
+	}
+
+	tokenPriv.PrivilegeCount           = 1;
+	tokenPriv.Privileges[0].Luid       = luidDebug;
+	tokenPriv.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+
+	if (!AdjustTokenPrivileges(hToken, FALSE, &tokenPriv, sizeof(tokenPriv), NULL, NULL)) {
+		OutputDebugString("AdjustTokenPrivileges() error.\n");
+	}
+
+	CloseHandle(hToken);
+}
+
+static const short *filter_wstring (const short *str, int length)
+{
+	static short buff[MAX_PATH_SIZE];
+	int i;
+
+	if (length > MAX_PATH_SIZE - 1)
+		length = MAX_PATH_SIZE - 1;
+
+	for (i = 0; i < length; i ++)
+		if (str[i] == L'\r' || str[i] == L'\n' || str[i] == L'\t' || str[i] == L'\"')
+			break;
+
+	if (i == length) {
+		if (str[length] == L'\0') {
+			return str;
+		} else {
+			memcpy(buff, str, length);
+			buff[length] = L'\0';
+		}
+	} else {
+		for (i = 0; i < length; i ++) {
+			if (str[i] == L'\r' || str[i] == L'\n' || str[i] == L'\t' || str[i] == L'\"')
+				buff[i] = L' ';
+			else
+				buff[i] = str[i];
+		}
+		buff[length] = L'\0';
+	}
+
+	return buff;
 }
 
 static void process_event (const struct event *event)
@@ -170,18 +229,15 @@ static void process_event (const struct event *event)
 
 	proc = phash_get(event->pid);
 
-	fprintf(out_file, "%u" FIELD_SEP "%I64u" FIELD_SEP "%d" FIELD_SEP "%d" FIELD_SEP "%s" FIELD_SEP "%s" FIELD_SEP "%s" FIELD_SEP,
-			event->serial,
-			event->time.QuadPart,
-			event->pid,
-			event->tid,
-			proc->name,
-			proc->owner,
-			get_ntstatus_name(event->status));
+	fprintf(out_file, "%u" FIELD_SEP "%I64u" FIELD_SEP "%d" FIELD_SEP "%d" FIELD_SEP
+			"%s" FIELD_SEP "%s" FIELD_SEP "%s" FIELD_SEP,
+			event->serial, event->time.QuadPart, event->pid, event->tid,
+			proc->name, proc->owner, get_ntstatus_name(event->status));
 
 	switch (event->type) {
 	case ET_FILE_CREATE:
-		fprintf(out_file, "file_create" FIELD_SEP "%S" FIELD_SEP "access=0x%x" PARAM_SEP "share=0x%x" PARAM_SEP "attr=0x%x" PARAM_SEP "cd=0x%x" PARAM_SEP "co=0x%x\n",
+		fprintf(out_file, "file_create" FIELD_SEP "%S" FIELD_SEP
+				"access=0x%x" PARAM_SEP "share=0x%x" PARAM_SEP "attr=0x%x" PARAM_SEP "cd=0x%x" PARAM_SEP "co=0x%x\n",
 				event->path,
 				event->file_create.desired_access,
 				event->file_create.share_mode,
@@ -190,7 +246,7 @@ static void process_event (const struct event *event)
 				event->file_create.create_options);
 		break;
 	case ET_FILE_CLOSE:
-		fprintf(out_file, "file_close" FIELD_SEP "%S\n", event->path);
+		fprintf(out_file, "file_close" FIELD_SEP "%S" FIELD_SEP "\n", event->path);
 		break;
 	case ET_FILE_READ:
 		fprintf(out_file, "file_read" FIELD_SEP "%S" FIELD_SEP "addr=%I64u+%lu\n",
@@ -213,18 +269,22 @@ static void process_event (const struct event *event)
 	case ET_FILE_QUERY_INFORMATION:
 		switch (event->file_info.info_type) {
 		case FileAllInformation:
-			fprintf(out_file, "file_queryinfo" FIELD_SEP "%S" FIELD_SEP "t=FileAllInformation" PARAM_SEP "s=%d\n",
+			fprintf(out_file, "file_queryinfo" FIELD_SEP "%S" FIELD_SEP
+					"t=FileAllInformation" PARAM_SEP "s=%d\n",
 					event->path,
 					event->file_info.info_size);
 			break;
 		case FileAttributeTagInformation:
-			fprintf(out_file, "file_queryinfo" FIELD_SEP "%S" FIELD_SEP "t=FileAttributeTagInformation" PARAM_SEP "attr=0x%x" PARAM_SEP "tag=0x%x\n",
+			fprintf(out_file, "file_queryinfo" FIELD_SEP "%S" FIELD_SEP
+					"t=FileAttributeTagInformation" PARAM_SEP "attr=0x%x" PARAM_SEP "tag=0x%x\n",
 					event->path,
 					event->file_info.info_data.file_info_attribute_tag.file_attributes,
 					event->file_info.info_data.file_info_attribute_tag.reparse_tag);
 			break;
 		case FileBasicInformation:
-			fprintf(out_file, "file_queryinfo" FIELD_SEP "%S" FIELD_SEP "t=FileBasicInformation" PARAM_SEP "ct=%I64u" PARAM_SEP "lat=%I64u" PARAM_SEP "lwt=%I64u" PARAM_SEP "lct=%I64u" PARAM_SEP "attr=0x%x\n",
+			fprintf(out_file, "file_queryinfo" FIELD_SEP "%S" FIELD_SEP
+					"t=FileBasicInformation" PARAM_SEP "ct=%I64u" PARAM_SEP "lat=%I64u" PARAM_SEP
+					"lwt=%I64u" PARAM_SEP "lct=%I64u" PARAM_SEP "attr=0x%x\n",
 					event->path,
 					event->file_info.info_data.file_info_basic.creation_time,
 					event->file_info.info_data.file_info_basic.last_access_time,
@@ -233,7 +293,10 @@ static void process_event (const struct event *event)
 					event->file_info.info_data.file_info_basic.file_attributes);
 			break;
 		case FileCompressionInformation:
-			fprintf(out_file, "file_queryinfo" FIELD_SEP "%S" FIELD_SEP "t=FileCompressionInformation" PARAM_SEP "size=%I64u" PARAM_SEP "format=%d" PARAM_SEP "unit=%d" PARAM_SEP "chunk=%d" PARAM_SEP "cluster=%d" PARAM_SEP "reserved=%d,%d,%d\n",
+			fprintf(out_file, "file_queryinfo" FIELD_SEP "%S" FIELD_SEP
+					"t=FileCompressionInformation" PARAM_SEP "size=%I64u" PARAM_SEP
+					"format=%d" PARAM_SEP "unit=%d" PARAM_SEP "chunk=%d" PARAM_SEP
+					"cluster=%d" PARAM_SEP "reserved=%d,%d,%d\n",
 					event->path,
 					event->file_info.info_data.file_info_compression.compressed_file_size,
 					event->file_info.info_data.file_info_compression.compression_format,
@@ -245,22 +308,28 @@ static void process_event (const struct event *event)
 					event->file_info.info_data.file_info_compression.reserved[2]);
 			break;
 		case FileEaInformation:
-			fprintf(out_file, "file_queryinfo" FIELD_SEP "%S" FIELD_SEP "t=FileEaInformation" PARAM_SEP "size=%d\n",
+			fprintf(out_file, "file_queryinfo" FIELD_SEP "%S" FIELD_SEP
+					"t=FileEaInformation" PARAM_SEP "size=%d\n",
 					event->path,
 					event->file_info.info_data.file_info_ea.ea_size);
 			break;
 		case FileInternalInformation:
-			fprintf(out_file, "file_queryinfo" FIELD_SEP "%S" FIELD_SEP "t=FileInternalInformation" PARAM_SEP "index=%I64u\n",
+			fprintf(out_file, "file_queryinfo" FIELD_SEP "%S" FIELD_SEP
+					"t=FileInternalInformation" PARAM_SEP "index=%I64u\n",
 					event->path,
 					event->file_info.info_data.file_info_internal.index_number);
 			break;
 		case FileNameInformation:
-			fprintf(out_file, "file_queryinfo" FIELD_SEP "%S" FIELD_SEP "t=FileNameInformation" PARAM_SEP "name=\"%S\"\n",
+			fprintf(out_file, "file_queryinfo" FIELD_SEP "%S" FIELD_SEP
+					"t=FileNameInformation" PARAM_SEP "name=\"%S\"\n",
 					event->path,
 					event->file_info.info_data.file_info_name.file_name);
 			break;
 		case FileNetworkOpenInformation:
-			fprintf(out_file, "file_queryinfo" FIELD_SEP "%S" FIELD_SEP "t=FileNetworkOpenInformation" PARAM_SEP "ct=%I64u" PARAM_SEP "lat=%I64u" PARAM_SEP "lwt=%I64u" PARAM_SEP "lct=%I64u" PARAM_SEP "as=%I64u" PARAM_SEP "eof=%I64u" PARAM_SEP "attr=0x%x\n",
+			fprintf(out_file, "file_queryinfo" FIELD_SEP "%S" FIELD_SEP
+					"t=FileNetworkOpenInformation" PARAM_SEP "ct=%I64u" PARAM_SEP
+					"lat=%I64u" PARAM_SEP "lwt=%I64u" PARAM_SEP "lct=%I64u" PARAM_SEP
+					"as=%I64u" PARAM_SEP "eof=%I64u" PARAM_SEP "attr=0x%x\n",
 					event->path,
 					event->file_info.info_data.file_info_network_open.creation_time,
 					event->file_info.info_data.file_info_network_open.last_access_time,
@@ -271,26 +340,31 @@ static void process_event (const struct event *event)
 					event->file_info.info_data.file_info_network_open.file_attributes);
 			break;
 		case FilePositionInformation:
-			fprintf(out_file, "file_queryinfo" FIELD_SEP "%S" FIELD_SEP "t=FilePositionInformation" PARAM_SEP "pos=%I64u\n",
+			fprintf(out_file, "file_queryinfo" FIELD_SEP "%S" FIELD_SEP
+					"t=FilePositionInformation" PARAM_SEP "pos=%I64u\n",
 					event->path,
 					event->file_info.info_data.file_info_position.current_byte_offset);
 			break;
 		case FileStandardInformation:
-			fprintf(out_file, "file_queryinfo" FIELD_SEP "%S" FIELD_SEP "t=FileStandardInformation" PARAM_SEP "as=%I64u" PARAM_SEP "eof=%I64u" PARAM_SEP "links=%d" PARAM_SEP "delete=%s" PARAM_SEP "dir=%s\n",
+			fprintf(out_file, "file_queryinfo" FIELD_SEP "%S" FIELD_SEP
+					"t=FileStandardInformation" PARAM_SEP "as=%I64u" PARAM_SEP "eof=%I64u" PARAM_SEP
+					"links=%d" PARAM_SEP "delete=%s" PARAM_SEP "dir=%s\n",
 					event->path,
 					event->file_info.info_data.file_info_standard.allocation_size,
 					event->file_info.info_data.file_info_standard.end_of_file,
 					event->file_info.info_data.file_info_standard.number_of_links,
 					event->file_info.info_data.file_info_standard.delete_pending ? "true" : "false",
-					event->file_info.info_data.file_info_standard.directory ? "true" : "false");
+					event->file_info.info_data.file_info_standard.directory ? "true" : "false"); //TODO check correctness
 			break;
 		case FileStreamInformation:
-			fprintf(out_file, "file_queryinfo" FIELD_SEP "%S" FIELD_SEP "t=FileStreamInformation" PARAM_SEP "next=%lu" PARAM_SEP "size=%I64u" PARAM_SEP "as=%I64u" PARAM_SEP "name=\"%S\"\n",
+			fprintf(out_file, "file_queryinfo" FIELD_SEP "%S" FIELD_SEP
+					"t=FileStreamInformation" PARAM_SEP "next=%lu" PARAM_SEP "size=%I64u" PARAM_SEP
+					"as=%I64u" PARAM_SEP "name=\"%S\"\n",
 					event->path,
 					event->file_info.info_data.file_info_stream.next_entry_offset,
 					event->file_info.info_data.file_info_stream.stream_size,
 					event->file_info.info_data.file_info_stream.stream_allocation_size,
-					event->file_info.info_data.file_info_stream.stream_name);
+					filter_wstring(event->file_info.info_data.file_info_stream.stream_name, event->file_info.info_data.file_info_stream.stream_name_length));
 			break;
 		default:
 			fprintf(out_file, "file_queryinfo" FIELD_SEP "%S" FIELD_SEP "t=%d" PARAM_SEP "s=%d\n",
@@ -302,12 +376,15 @@ static void process_event (const struct event *event)
 	case ET_FILE_SET_INFORMATION:
 		switch (event->file_info.info_type) {
 		case FileAllocationInformation:
-			fprintf(out_file, "file_setinfo" FIELD_SEP "%S" FIELD_SEP "t=FileAllocationInformation" PARAM_SEP "AllocationSize=%I64u\n",
+			fprintf(out_file, "file_setinfo" FIELD_SEP "%S" FIELD_SEP
+					"t=FileAllocationInformation" PARAM_SEP "AllocationSize=%I64u\n",
 					event->path,
 					event->file_info.info_data.file_info_allocation.allocation_size);
 			break;
 		case FileBasicInformation:
-			fprintf(out_file, "file_setinfo" FIELD_SEP "%S" FIELD_SEP "t=FileBasicInformation" PARAM_SEP "ct=%I64u" PARAM_SEP "lat=%I64u" PARAM_SEP "lwt=%I64u" PARAM_SEP "lct=%I64u" PARAM_SEP "attr=0x%x\n",
+			fprintf(out_file, "file_setinfo" FIELD_SEP "%S" FIELD_SEP
+					"t=FileBasicInformation" PARAM_SEP "ct=%I64u" PARAM_SEP "lat=%I64u" PARAM_SEP
+					"lwt=%I64u" PARAM_SEP "lct=%I64u" PARAM_SEP "attr=0x%x\n",
 					event->path,
 					event->file_info.info_data.file_info_basic.creation_time,
 					event->file_info.info_data.file_info_basic.last_access_time,
@@ -316,41 +393,49 @@ static void process_event (const struct event *event)
 					event->file_info.info_data.file_info_basic.file_attributes);
 			break;
 		case FileDispositionInformation:
-			fprintf(out_file, "file_setinfo" FIELD_SEP "%S" FIELD_SEP "t=FileDispositionInformation" PARAM_SEP "delete=%s\n",
+			fprintf(out_file, "file_setinfo" FIELD_SEP "%S" FIELD_SEP
+					"t=FileDispositionInformation" PARAM_SEP "delete=%s\n",
 					event->path,
 					event->file_info.info_data.file_info_disposition.delete_file ? "true" : "false");
 			break;
 		case FileEndOfFileInformation:
-			fprintf(out_file, "file_setinfo" FIELD_SEP "%S" FIELD_SEP "t=FileEndOfFileInformation" PARAM_SEP "end=%I64u\n",
+			fprintf(out_file, "file_setinfo" FIELD_SEP "%S" FIELD_SEP
+					"t=FileEndOfFileInformation" PARAM_SEP "end=%I64u\n",
 					event->path,
 					event->file_info.info_data.file_info_end_of_file.end_of_file);
 			break;
 		case FileLinkInformation:
-			fprintf(out_file, "file_setinfo" FIELD_SEP "%S" FIELD_SEP "t=FileLinkInformation" PARAM_SEP "replace=%s" PARAM_SEP "root=0x%x" PARAM_SEP "name=\"%S\"\n",
+			fprintf(out_file, "file_setinfo" FIELD_SEP "%S" FIELD_SEP
+					"t=FileLinkInformation" PARAM_SEP "replace=%s" PARAM_SEP "root=0x%x" PARAM_SEP "name=\"%S\"\n",
 					event->path,
 					event->file_info.info_data.file_info_link.replace_if_exists ? "true" : "false",
 					event->file_info.info_data.file_info_link.root_directory,
-					event->file_info.info_data.file_info_link.file_name);
+					filter_wstring(event->file_info.info_data.file_info_link.file_name, event->file_info.info_data.file_info_link.file_name_length));
 			break;
 		case FilePositionInformation:
-			fprintf(out_file, "file_setinfo" FIELD_SEP "%S" FIELD_SEP "t=FilePositionInformation" PARAM_SEP "pos=%I64u\n",
+			fprintf(out_file, "file_setinfo" FIELD_SEP "%S" FIELD_SEP
+					"t=FilePositionInformation" PARAM_SEP "pos=%I64u\n",
 					event->path,
 					event->file_info.info_data.file_info_position.current_byte_offset);
 			break;
 		case FileRenameInformation:
-			fprintf(out_file, "file_setinfo" FIELD_SEP "%S" FIELD_SEP "t=FileRenameInformation" PARAM_SEP "replace=%s" PARAM_SEP "root=0x%x" PARAM_SEP "name=\"%S\"\n",
+			fprintf(out_file, "file_setinfo" FIELD_SEP "%S" FIELD_SEP
+					"t=FileRenameInformation" PARAM_SEP "replace=%s" PARAM_SEP "root=0x%x" PARAM_SEP
+					"name=\"%S\"\n",
 					event->path,
 					event->file_info.info_data.file_info_rename.replace_if_exists ? "true" : "false",
 					event->file_info.info_data.file_info_rename.root_directory,
-					event->file_info.info_data.file_info_rename.file_name);
+					filter_wstring(event->file_info.info_data.file_info_rename.file_name, event->file_info.info_data.file_info_rename.file_name_length));
 			break;
 		case FileValidDataLengthInformation:
-			fprintf(out_file, "file_setinfo" FIELD_SEP "%S" FIELD_SEP "t=FileValidDataLengthInformation" PARAM_SEP "len=%I64u\n",
+			fprintf(out_file, "file_setinfo" FIELD_SEP "%S" FIELD_SEP
+					"t=FileValidDataLengthInformation" PARAM_SEP "len=%I64u\n",
 					event->path,
 					event->file_info.info_data.file_info_valid_data_length.valid_data_length);
 			break;
 		default:
-			fprintf(out_file, "file_setinfo" FIELD_SEP "%S" FIELD_SEP "t=%d" PARAM_SEP "s=%d\n",
+			fprintf(out_file, "file_setinfo" FIELD_SEP "%S" FIELD_SEP
+					"t=%d" PARAM_SEP "s=%d\n",
 					event->path,
 					event->file_info.info_type,
 					event->file_info.info_size);
@@ -362,7 +447,8 @@ static void process_event (const struct event *event)
 				event->reg_close.handle);
 		break;
 	case ET_REG_CREATE:
-		fprintf(out_file, "reg_create" FIELD_SEP "%S" FIELD_SEP "hd=0x%x" PARAM_SEP "da=0x%x" PARAM_SEP "co=0x%x" PARAM_SEP "cd=0x%x\n",
+		fprintf(out_file, "reg_create" FIELD_SEP "%S" FIELD_SEP
+				"hd=0x%x" PARAM_SEP "da=0x%x" PARAM_SEP "co=0x%x" PARAM_SEP "cd=0x%x\n",
 				event->path,
 				event->reg_create.handle,
 				event->reg_create.desired_access,
@@ -401,18 +487,16 @@ static void process_event (const struct event *event)
 					*(unsigned int *)event->reg_rw.value);
 			break;
 		case REG_EXPAND_SZ:
-			fprintf(out_file, "reg_%svalue" FIELD_SEP "%S" FIELD_SEP "t=REG_EXPAND_SZ" PARAM_SEP "l=%d" PARAM_SEP "v=\"%S\"\n",
+			fprintf(out_file, "reg_%svalue" FIELD_SEP "%S" FIELD_SEP "t=REG_EXPAND_SZ" PARAM_SEP "v=\"%S\"\n",
 					event->type == ET_REG_QUERYVALUE ? "query" : "set",
 					event->path,
-					event->reg_rw.value_length,
-					event->reg_rw.value);
+					filter_wstring((const short *)event->reg_rw.value, event->reg_rw.value_length / 2));
 			break;
 		case REG_SZ:
-			fprintf(out_file, "reg_%svalue" FIELD_SEP "%S" FIELD_SEP "t=REG_SZ" PARAM_SEP "l=%d" PARAM_SEP "v=\"%S\"\n",
+			fprintf(out_file, "reg_%svalue" FIELD_SEP "%S" FIELD_SEP "t=REG_SZ" PARAM_SEP "v=\"%S\"\n",
 					event->type == ET_REG_QUERYVALUE ? "query" : "set",
 					event->path,
-					event->reg_rw.value_length,
-					event->reg_rw.value);
+					filter_wstring((const short *)event->reg_rw.value, event->reg_rw.value_length / 2));
 			break;
 		default:
 			fprintf(out_file, "reg_%svalue" FIELD_SEP "%S" FIELD_SEP "t=0x%x" PARAM_SEP "l=%d\n",
@@ -442,7 +526,8 @@ static void process_event (const struct event *event)
 				event->proc_thread_create.tid);
 		break;
 	case ET_PROC_IMAGE:
-		fprintf(out_file, "image" FIELD_SEP "%S" FIELD_SEP "system=%s" PARAM_SEP "base=0x%08x" PARAM_SEP "size=0x%x\n",
+		fprintf(out_file, "image" FIELD_SEP "%S" FIELD_SEP
+				"system=%s" PARAM_SEP "base=0x%08x" PARAM_SEP "size=0x%x\n",
 				event->path,
 				event->proc_image.system ? "true" : "false",
 				event->proc_image.base,
@@ -706,7 +791,102 @@ static int run_service (void)
 
 static int run_console (void)
 {
-	return 1;
+	if(!SetPriorityClass(GetCurrentProcess(), ABOVE_NORMAL_PRIORITY_CLASS)) {
+		printf("SetPriorityClass(GetCurrentProcess(), ABOVE_NORMAL_PRIORITY_CLASS) failed. err=%d\n", GetLastError());
+	}
+	if(!SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL)) {
+		printf("SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL) failed. err=%d\n", GetLastError());
+	}
+
+	driver_file = CreateFile("\\\\.\\resmon",
+			GENERIC_READ | GENERIC_WRITE,
+			0, NULL, OPEN_EXISTING,
+			FILE_ATTRIBUTE_NORMAL, NULL);
+	if (driver_file == INVALID_HANDLE_VALUE) {
+		printf("CreateFile(\"\\\\.\\resmon\") failed. err=%d\n", GetLastError());
+		return 1;
+	}
+
+	ready_event = OpenEvent(SYNCHRONIZE, FALSE, "Global\\resmonready");
+	if (ready_event == NULL) {
+		printf("OpenEvent(\"Global\\resmonready\") failed. err=%d\n", GetLastError());
+		return 1;
+	}
+
+	section = OpenFileMapping(FILE_MAP_READ, FALSE, "Global\\resmoneb");
+	if (section == NULL) {
+		printf("OpenFileMapping(\"Global\\resmoneb\") failed. err=%d\n", GetLastError());
+		return 1;
+	}
+
+	event_buffer = (struct event_buffer *)MapViewOfFile(section, FILE_MAP_READ, 0, 0, sizeof(struct event_buffer));
+	if (event_buffer == NULL) {
+		printf("MapViewOfFile() failed. err=%d\n", GetLastError());
+		return 1;
+	}
+
+#ifdef ENABLE_GZIP
+	out_file = gzdopen(1, "wb");
+	if (out_file == NULL) {
+		retval = GetLastError(); // FIXME: how to translate errno to win32 LastError? needed?
+		OutputDebugString("Cannot open \"C:\\resmon.log\" for writing.\n");
+		return retval;
+	}
+#else
+	out_file = stdout;
+#endif
+
+	phash_init();
+
+	for (;;) {
+		DWORD wait_status;
+		int event_num;
+		struct event *events;
+		int i;
+
+		// wait for at most 1 sec
+		wait_status = WaitForSingleObject(ready_event, 1000);
+		if (wait_status == WAIT_FAILED) {
+			printf("WaitForSingleObject() failed. err=%d\n", GetLastError());
+			return 1;
+		}
+		if (wait_status == WAIT_ABANDONED) {
+			printf("WaitForSingleObject() returns WAIT_ABANDONED.\n");
+			return 1;
+		}
+
+		if (!DeviceIoControl(driver_file, (ULONG)IOCTL_REQUEST_SWAP,
+					NULL, 0, NULL, 0,
+					&i, NULL)) {
+			printf("DeviceIoControl() failed %d\n", GetLastError());
+			return 1;
+		}
+
+		event_num = event_buffer->counters[!event_buffer->active];
+		events = event_buffer->buffers[!event_buffer->active];
+		for (i = 0; i < event_num; i ++) {
+			process_event(&events[i]);
+		}
+	}
+
+	if (ready_event != NULL) {
+		CloseHandle(ready_event);
+		ready_event = NULL;
+	}
+	if (event_buffer != NULL) {
+		UnmapViewOfFile(event_buffer);
+		event_buffer = NULL;
+	}
+	if (section != NULL) {
+		CloseHandle(section);
+		section = NULL;
+	}
+	if (driver_file != NULL) {
+		CloseHandle(driver_file);
+		driver_file = NULL;
+	}
+
+	return 0;
 }
 
 static int install (void)
