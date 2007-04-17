@@ -9,7 +9,7 @@
 #define fprintf gzprintf
 #endif
 
-#define PHASH_SIZE 2046
+#define PHASH_SIZE 198 // again, a bus number
 #define FIELD_SEP "\t"
 #define PARAM_SEP ", "
 
@@ -69,8 +69,10 @@ typedef enum _FILE_INFORMATION_CLASS {
 extern const char *get_ntstatus_name (long status);
 
 struct proc_info {
-	struct proc_info *next;
+	struct proc_info *htable_next;
 	unsigned long pid;
+	unsigned int deleting_age; // for deleting proc. this is the serial of proc_term
+	struct proc_info *deleting_next;
 	char name[MAX_PATH_SIZE];
 	char owner[MAX_PATH_SIZE];
 };
@@ -86,6 +88,7 @@ static gzFile out_file;
 static FILE *out_file;
 #endif
 static struct proc_info *proc_hashtable[PHASH_SIZE];
+static struct proc_info *deleting_head, *deleting_tail;
 
 static void phash_remove (unsigned long pid)
 {
@@ -94,42 +97,69 @@ static void phash_remove (unsigned long pid)
 	if (proc == NULL)
 		return;
 	if (proc->pid == pid) {
-		proc_hashtable[pid % PHASH_SIZE] = proc->next;
+		proc_hashtable[pid % PHASH_SIZE] = proc->htable_next;
 		free(proc);
 		return;
 	}
-	for (; proc->next != NULL; proc = proc->next) {
-		if (proc->next->pid == pid) {
-			struct proc_info *tmp = proc->next;
-			proc->next = tmp->next;
+	for (; proc->htable_next != NULL; proc = proc->htable_next) {
+		if (proc->htable_next->pid == pid) {
+			struct proc_info *tmp = proc->htable_next;
+			proc->htable_next = tmp->htable_next;
 			free(tmp);
 			return;
 		}
 	}
 }
 
+static void phash_term (unsigned long pid, unsigned age)
+{
+	struct proc_info *proc = proc_hashtable[pid % PHASH_SIZE];
+	while (proc != NULL) {
+		if (proc->pid == pid) {
+			proc->deleting_age = age;
+			if (deleting_head == NULL) {
+				deleting_head = deleting_tail = proc;
+			} else {
+				deleting_tail = deleting_tail->deleting_next = proc;
+			}
+			proc->deleting_next = NULL;
+			break;
+		}
+		proc = proc->htable_next;
+	}
+}
+
 static void phash_query (struct proc_info *proc)
 {
 	HANDLE process, token;
-	char owner_buffer[16384];
-	TOKEN_OWNER *owner = (TOKEN_OWNER *)owner_buffer;
+	char owner_buffer[16384]; // strange thing found in http://win32.mvps.org/security/opt_gti.cpp
+	TOKEN_USER *owner = (TOKEN_USER *)owner_buffer;
 	int owner_size;
 	char account[256], domain[256];
 	int account_size = sizeof(account), domain_size = sizeof(domain);
 	SID_NAME_USE type;
 
-	proc->name[0] = proc->owner[0] = '\0';
+	proc->name[0] = proc->owner[0] = '?';
+	proc->name[1] = proc->owner[1] = '\0';
 
 	process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, proc->pid);
 	if (process == NULL)
 		return;
 
-	if (!GetModuleFileNameEx(process, NULL, proc->name, sizeof(proc->name)))
-		proc->name[0] = '\0';
+	if (!GetModuleFileNameEx(process, NULL, proc->name, sizeof(proc->name))) {
+		if (proc->pid == 4) { // hard-code pid 4
+			sprintf_s(proc->name, sizeof(proc->name), "System");
+		} else {
+			proc->name[0] = '?';
+			proc->name[1] = '\0';
+		}
+	}
+	if (strncmp(proc->name, "\\??\\", 4) == 0)
+		memmove(proc->name, proc->name + 4, strlen(proc->name) - 4);
 
 	if (OpenProcessToken(process, TOKEN_QUERY, &token)) {
-		if (GetTokenInformation(token, TokenOwner, owner, sizeof(owner_buffer), &owner_size)) {
-			if (LookupAccountSid(NULL, owner->Owner, account, &account_size, domain, &domain_size, &type)) {
+		if (GetTokenInformation(token, TokenUser, owner, sizeof(owner_buffer), &owner_size)) {
+			if (LookupAccountSid(NULL, owner->User.Sid, account, &account_size, domain, &domain_size, &type)) {
 				sprintf_s(proc->owner, sizeof(proc->owner), "%s\\%s", domain, account);
 			}
 		}
@@ -143,13 +173,13 @@ static struct proc_info *phash_get (unsigned long pid)
 {
 	struct proc_info *curr;
 
-	for (curr = proc_hashtable[pid % PHASH_SIZE]; curr != NULL; curr = curr->next)
+	for (curr = proc_hashtable[pid % PHASH_SIZE]; curr != NULL; curr = curr->htable_next)
 		if (curr->pid == pid)
 			return curr;
 
 	curr = (struct proc_info *)malloc(sizeof(struct proc_info));
 	curr->pid = pid;
-	curr->next = proc_hashtable[pid % PHASH_SIZE];
+	curr->htable_next = proc_hashtable[pid % PHASH_SIZE];
 	proc_hashtable[pid % PHASH_SIZE] = curr;
 	phash_query(curr);
 
@@ -165,6 +195,7 @@ static void phash_init (void)
 
 	for (i = 0; i < PHASH_SIZE; i ++)
 		proc_hashtable[i] = NULL;
+	deleting_head = deleting_tail = NULL;
 
 	if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES, &hToken)) {
 		OutputDebugString("OpenProcessToken(curr) error.\n");
@@ -228,6 +259,11 @@ static void process_event (const struct event *event)
 		return;
 
 	proc = phash_get(event->pid);
+	if (proc->name[0] == '?' && proc->name[1] == '\0' &&
+			event->type == ET_PROC_IMAGE &&
+			(event->proc_image.base == (void*)0x01000000 || event->proc_image.base == (void*)0x00400000)) {
+		sprintf_s(proc->name, sizeof(proc->name), "%S", event->path);
+	}
 
 	fprintf(out_file, "%u" FIELD_SEP "%I64u" FIELD_SEP "%d" FIELD_SEP "%d" FIELD_SEP
 			"%s" FIELD_SEP "%s" FIELD_SEP "%s" FIELD_SEP,
@@ -237,7 +273,8 @@ static void process_event (const struct event *event)
 	switch (event->type) {
 	case ET_FILE_CREATE:
 		fprintf(out_file, "file_create" FIELD_SEP "%S" FIELD_SEP
-				"access=0x%x" PARAM_SEP "share=0x%x" PARAM_SEP "attr=0x%x" PARAM_SEP "cd=0x%x" PARAM_SEP "co=0x%x\n",
+				"access=0x%x" PARAM_SEP "share=0x%x" PARAM_SEP "attr=0x%x" PARAM_SEP
+				"cd=0x%x" PARAM_SEP "co=0x%x\n",
 				event->path,
 				event->file_create.desired_access,
 				event->file_create.share_mode,
@@ -406,7 +443,8 @@ static void process_event (const struct event *event)
 			break;
 		case FileLinkInformation:
 			fprintf(out_file, "file_setinfo" FIELD_SEP "%S" FIELD_SEP
-					"t=FileLinkInformation" PARAM_SEP "replace=%s" PARAM_SEP "root=0x%x" PARAM_SEP "name=\"%S\"\n",
+					"t=FileLinkInformation" PARAM_SEP "replace=%s" PARAM_SEP
+					"root=0x%x" PARAM_SEP "name=\"%S\"\n",
 					event->path,
 					event->file_info.info_data.file_info_link.replace_if_exists ? "true" : "false",
 					event->file_info.info_data.file_info_link.root_directory,
@@ -515,7 +553,7 @@ static void process_event (const struct event *event)
 		fprintf(out_file, "proc_term" FIELD_SEP "" FIELD_SEP "ppid=%d" PARAM_SEP "pid=%d\n",
 				event->proc_proc_term.ppid,
 				event->proc_proc_term.pid);
-		phash_remove(event->pid);
+		phash_term(event->pid, event->serial);
 		break;
 	case ET_PROC_THREAD_CREATE:
 		fprintf(out_file, "thread_create" FIELD_SEP "" FIELD_SEP "tid=%d\n",
@@ -535,6 +573,21 @@ static void process_event (const struct event *event)
 		break;
 	default:
 		fprintf(out_file, "unknown event\n");
+	}
+
+	if (event->serial % 256 == 0) {
+		while (deleting_head != NULL) {
+			struct proc_info *curr = deleting_head;
+
+			if (event->serial - curr->deleting_age < 1024)
+				break;
+
+			deleting_head = curr->deleting_next;
+			if (deleting_head == NULL)
+				deleting_tail = NULL;
+
+			phash_remove(curr->pid);
+		}
 	}
 }
 
@@ -828,7 +881,7 @@ static int run_console (void)
 #ifdef ENABLE_GZIP
 	out_file = gzdopen(1, "wb");
 	if (out_file == NULL) {
-		retval = GetLastError(); // FIXME: how to translate errno to win32 LastError? needed?
+		DWORD retval = GetLastError(); // FIXME: how to translate errno to win32 LastError? needed?
 		OutputDebugString("Cannot open \"C:\\resmon.log\" for writing.\n");
 		return retval;
 	}
