@@ -1,0 +1,8 @@
+TARGETNAME = resmonk
+TARGETTYPE = DRIVER
+
+MSC_WARNING_LEVEL = /W3
+
+TARGETLIBS = $(IFSKIT_LIB_PATH)\fltMgr.lib
+
+SOURCES    = ../htable.c ../eventk.c ../reg.c ../proc.c ../file.c ../resmonk.c

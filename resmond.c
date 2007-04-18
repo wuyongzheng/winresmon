@@ -1,8 +1,10 @@
 #include <windows.h>
 #include <winioctl.h>
-#include <psapi.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include "kucomm.h"
+
+DWORD WINAPI GetModuleFileNameExA (HANDLE hProcess, HMODULE hModule, LPTSTR lpFilename, DWORD nSize);
 
 #ifdef ENABLE_GZIP
 #include "zlib/zlib.h"
@@ -146,7 +148,7 @@ static void phash_query (struct proc_info *proc)
 	if (process == NULL)
 		return;
 
-	if (!GetModuleFileNameEx(process, NULL, proc->name, sizeof(proc->name))) {
+	if (!GetModuleFileNameExA(process, NULL, proc->name, sizeof(proc->name))) {
 		if (proc->pid == 4) { // hard-code pid 4
 			sprintf_s(proc->name, sizeof(proc->name), "System");
 		} else {
@@ -1026,7 +1028,7 @@ static void help (void)
 	printf("  resmond.exe /s        : run as service. do not invoke directly\n");
 }
 
-int main (int argc, char *argv[])
+int __cdecl main (int argc, char *argv[])
 {
 	if (argc == 2 && (strcmp(argv[1], "/h") == 0 || strcmp(argv[1], "-h") == 0)) {
 		help();
