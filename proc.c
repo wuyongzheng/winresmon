@@ -5,6 +5,9 @@ static void proc_notify_process (HANDLE ppid, HANDLE pid, BOOLEAN create)
 {
 	struct event *event;
 
+	if ((unsigned long)PsGetCurrentProcessId() <= 4 || (unsigned long)PsGetCurrentProcessId() == daemon_pid)
+		return;
+
 	event = event_buffer_start_add();
 	if (event == NULL)
 		return;
@@ -34,6 +37,9 @@ static void proc_notify_thread (HANDLE pid, HANDLE tid, BOOLEAN create)
 {
 	struct event *event;
 
+	if ((unsigned long)PsGetCurrentProcessId() <= 4 || (unsigned long)PsGetCurrentProcessId() == daemon_pid)
+		return;
+
 	event = event_buffer_start_add();
 	if (event == NULL)
 		return;
@@ -57,6 +63,9 @@ static void proc_notify_thread (HANDLE pid, HANDLE tid, BOOLEAN create)
 static void proc_notify_image (PUNICODE_STRING name, HANDLE pid, PIMAGE_INFO info)
 {
 	struct event *event;
+
+	if ((unsigned long)PsGetCurrentProcessId() <= 4 || (unsigned long)PsGetCurrentProcessId() == daemon_pid)
+		return;
 
 	event = event_buffer_start_add();
 	if (event == NULL)

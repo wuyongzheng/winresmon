@@ -17,6 +17,8 @@ static FLT_PREOP_CALLBACK_STATUS on_pre_close (PFLT_CALLBACK_DATA data, PCFLT_RE
 	// the condition (data->RequestorMode == KernelMode) is removed because it's always false.
 	if (KeGetCurrentIrql() > APC_LEVEL || fltobj->FileObject == NULL)
 		return FLT_PREOP_SUCCESS_NO_CALLBACK;
+	if ((unsigned long)PsGetCurrentProcessId() <= 4 || (unsigned long)PsGetCurrentProcessId() == daemon_pid)
+		return FLT_PREOP_SUCCESS_NO_CALLBACK;
 
 	name_info = NULL;
 	if(FltGetFileNameInformation(data,
@@ -46,6 +48,8 @@ static FLT_PREOP_CALLBACK_STATUS on_pre_set_info (PFLT_CALLBACK_DATA data, PCFLT
 
 	if (data->RequestorMode == KernelMode || KeGetCurrentIrql() > APC_LEVEL || fltobj->FileObject == NULL)
 		return FLT_PREOP_SUCCESS_NO_CALLBACK;
+	if ((unsigned long)PsGetCurrentProcessId() <= 4 || (unsigned long)PsGetCurrentProcessId() == daemon_pid)
+		return FLT_PREOP_SUCCESS_NO_CALLBACK;
 	if (data->Iopb->Parameters.SetFileInformation.FileInformationClass != FileRenameInformation)
 		return FLT_PREOP_SUCCESS_WITH_CALLBACK;
 
@@ -69,6 +73,8 @@ static FLT_POSTOP_CALLBACK_STATUS on_post_op (PFLT_CALLBACK_DATA data, PCFLT_REL
 	struct event *event;
 
 	if (data->RequestorMode == KernelMode || KeGetCurrentIrql() > APC_LEVEL || fltobj->FileObject == NULL)
+		return FLT_POSTOP_FINISHED_PROCESSING;
+	if ((unsigned long)PsGetCurrentProcessId() <= 4 || (unsigned long)PsGetCurrentProcessId() == daemon_pid)
 		return FLT_POSTOP_FINISHED_PROCESSING;
 
 	name_info = NULL;

@@ -12,7 +12,7 @@ struct event *event_buffer_start_add (void)
 {
 	struct event *event;
 
-	if (daemon_pid == (unsigned long)PsGetCurrentProcessId() || daemon_pid == 0)
+	if (daemon_pid == 0)
 		return NULL;
 
 	ExAcquireFastMutex(&event_buffer_mutex);
