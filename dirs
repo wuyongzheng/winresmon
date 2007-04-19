@@ -1,1 +1,1 @@
-DIRS = resmond resmonk
+DIRS = resmonk resmond counter

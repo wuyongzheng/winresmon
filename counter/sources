@@ -1,0 +1,10 @@
+TARGETNAME = counter
+TARGETTYPE = PROGRAM
+
+MSC_WARNING_LEVEL = /W3
+
+UMTYPE = console
+USE_MSVCRT = 1
+386_STDCALL = 0
+
+SOURCES= ../counter.c
