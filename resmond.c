@@ -1028,7 +1028,7 @@ static void help (void)
 	printf("  resmond.exe /s        : run as service. do not invoke directly\n");
 }
 
-int __cdecl main (int argc, char *argv[])
+int main (int argc, char *argv[])
 {
 	if (argc == 2 && (strcmp(argv[1], "/h") == 0 || strcmp(argv[1], "-h") == 0)) {
 		help();
