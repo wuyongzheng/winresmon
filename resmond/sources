@@ -5,6 +5,7 @@ MSC_WARNING_LEVEL = /W3
 
 UMTYPE = console
 USE_MSVCRT = 1
+386_STDCALL = 0
 
 TARGETLIBS = ../zlib/zdll.lib $(SDK_LIB_PATH)/advapi32.lib $(SDK_LIB_PATH)/psapi.lib
 C_DEFINES = /DENABLE_GZIP
