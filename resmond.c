@@ -182,6 +182,8 @@ static struct proc_info *phash_get (unsigned long pid)
 	curr = (struct proc_info *)malloc(sizeof(struct proc_info));
 	curr->pid = pid;
 	curr->htable_next = proc_hashtable[pid % PHASH_SIZE];
+	curr->deleting_age = 0;
+	curr->deleting_next = NULL;
 	proc_hashtable[pid % PHASH_SIZE] = curr;
 	phash_query(curr);
 
@@ -563,7 +565,7 @@ static void process_event (const struct event *event)
 		break;
 	case ET_PROC_THREAD_TERM:
 		fprintf(out_file, "thread_term" FIELD_SEP "" FIELD_SEP "tid=%d\n",
-				event->proc_thread_create.tid);
+				event->proc_thread_term.tid);
 		break;
 	case ET_PROC_IMAGE:
 		fprintf(out_file, "image" FIELD_SEP "%S" FIELD_SEP
