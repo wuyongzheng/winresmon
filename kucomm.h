@@ -60,6 +60,7 @@ struct event {
 	int path_length; // <= MAX_PATH_SIZE - 1
 	short path[MAX_PATH_SIZE]; // always '\0' terminated
 	union {
+		// http://msdn2.microsoft.com/en-us/library/ms795806.aspx
 		struct {
 			ACCESS_MASK desired_access; // e.g. FILE_READ_EA
 			unsigned long share_mode; // e.g. FILE_SHARE_READ
@@ -67,11 +68,14 @@ struct event {
 			unsigned long creation_disposition; // e.g. FILE_OPEN_IF
 			unsigned long create_options; // e.g. FILE_DIRECTORY_FILE
 		} file_create;
+		// http://msdn2.microsoft.com/en-us/library/ms795902.aspx
 		struct {
 			LARGE_INTEGER offset;
 			unsigned long length;
 			char data[MAX_IO_SIZE];
 		} file_rw;
+		// http://msdn2.microsoft.com/en-us/library/ms796040.aspx
+		// http://msdn2.microsoft.com/en-us/library/ms795789.aspx
 		struct {
 			int info_type;
 			int info_size;
@@ -192,22 +196,28 @@ struct event {
 		struct {
 			HANDLE handle;
 		} reg_close;
+		// http://msdn2.microsoft.com/en-us/library/ms804348.aspx
 		struct {
 			HANDLE handle;
 			ACCESS_MASK desired_access; // e.g. KEY_QUERY_VALUE
 			unsigned long create_options; // e.g. REG_OPTION_VOLATILE
 			unsigned long creation_disposition; // e.g. e.g. REG_CREATED_NEW_KEY
 		} reg_create;
+		// http://msdn2.microsoft.com/en-us/library/ms804367.aspx
 		struct {
 			HANDLE handle;
 		} reg_delete;
+		// http://msdn2.microsoft.com/en-us/library/ms804372.aspx
 		struct {
 			HANDLE handle;
 		} reg_delete_value;
+		// http://msdn2.microsoft.com/en-us/library/ms804360.aspx
 		struct {
 			HANDLE handle;
 			ACCESS_MASK desired_access;
 		} reg_open;
+		// http://msdn2.microsoft.com/en-us/library/ms804371.aspx
+		// http://msdn2.microsoft.com/en-us/library/ms804346.aspx
 		struct {
 			HANDLE handle;
 			unsigned long value_type;
@@ -228,6 +238,7 @@ struct event {
 		struct {
 			HANDLE tid;
 		} proc_thread_term;
+		// http://msdn2.microsoft.com/en-us/library/ms802949.aspx
 		struct {
 			int system;
 			void *base;
