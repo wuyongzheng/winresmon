@@ -418,7 +418,7 @@ static void process_event (const struct event *event)
 		switch (event->file_info.info_type) {
 		case FileAllocationInformation:
 			fprintf(out_file, "file_setinfo" FIELD_SEP "%S" FIELD_SEP
-					"t=FileAllocationInformation" PARAM_SEP "AllocationSize=%I64u\n",
+					"t=FileAllocationInformation" PARAM_SEP "as=%I64u\n",
 					event->path,
 					event->file_info.info_data.file_info_allocation.allocation_size);
 			break;
