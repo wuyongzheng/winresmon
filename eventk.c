@@ -25,6 +25,39 @@ struct event *event_buffer_start_add (void)
 		KeQuerySystemTime(&event->time);
 		event->pid = (unsigned long)PsGetCurrentProcessId();
 		event->tid = (unsigned long)PsGetCurrentThreadId();
+
+#ifdef TRACE_STACK
+		{
+			int stack_count = 0;
+			unsigned int *regebp;
+
+			try {
+				__asm {
+					mov eax, fs:[40h]
+					mov ebx, [eax+4h]
+					mov regebp, ebx
+				};
+				regebp = (unsigned int *)*(regebp - 7);
+				while (1) {
+					unsigned int *next_regebp;
+	
+					ProbeForRead(regebp, sizeof(unsigned int) * 2,  sizeof(unsigned int));
+					next_regebp = (unsigned int *)*regebp;
+					event->stack_ret[stack_count] = *(regebp + 1);
+					stack_count ++;
+	
+					if (stack_count >= MAX_STACK_FRAME ||
+							next_regebp <= regebp ||
+							next_regebp > regebp + 8192) // assume no stack frame > 32k
+						break;
+					regebp = next_regebp;
+				}
+			} except(EXCEPTION_EXECUTE_HANDLER) {
+				//DbgPrint("x (%d,%d) %p %d %d\n", event->pid, event->tid, regebp, step, stack_count);
+			}
+			event->stack_n = stack_count;
+		}
+#endif
 	} else {
 		event = NULL;
 		event_buffer->missing ++;

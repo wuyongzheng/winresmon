@@ -17,6 +17,7 @@
 
 #define MAX_PATH_SIZE 256 // number of unicode characters
 #define MAX_IO_SIZE 64    // number of bytes
+#define MAX_STACK_FRAME 32
 
 #define EVENT_BUFFER_SIZE 1024
 #define EVENT_BUFFER_THRESHOLD (EVENT_BUFFER_SIZE / 2)
@@ -57,6 +58,10 @@ struct event {
 	unsigned long tid;
 	enum event_type type;
 	unsigned long status;
+#ifdef TRACE_STACK
+	int stack_n;
+	unsigned int stack_ret[MAX_STACK_FRAME];
+#endif
 	int path_length; // <= MAX_PATH_SIZE - 1
 	short path[MAX_PATH_SIZE]; // always '\0' terminated
 	union {

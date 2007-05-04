@@ -7,4 +7,5 @@ UMTYPE = console
 USE_MSVCRT = 1
 386_STDCALL = 0
 
+C_DEFINES = /DTRACE_STACK
 SOURCES= ../counter.c
