@@ -29,31 +29,40 @@ struct event *event_buffer_start_add (void)
 #ifdef TRACE_STACK
 		{
 			int stack_count = 0;
-			unsigned int *regebp;
+			unsigned int *kstack_base, *user_esp, *user_ebp;
 
 			try {
+				// fs:[40h] + 4 is kernel stack base address
 				__asm {
 					mov eax, fs:[40h]
 					mov ebx, [eax+4h]
-					mov regebp, ebx
+					mov kstack_base, ebx
 				};
-				regebp = (unsigned int *)*(regebp - 7);
+				/* initial kernel stack layout
+				 * 1-4 ss, esp, eflags, cs
+				 * 5-8 ret addr, 0, ebp, ebx
+				 * 9-c esi, edi, fs, except list
+				 */
+				user_esp = (unsigned int *)*(kstack_base - 2);
+				ProbeForRead(user_esp, sizeof(unsigned int) * 2, sizeof(unsigned int));
+				event->stack_ret[stack_count ++] = *(user_esp);
+				event->stack_ret[stack_count ++] = *(user_esp + 1);
+				user_ebp = (unsigned int *)*(kstack_base - 7);
 				while (1) {
-					unsigned int *next_regebp;
-	
-					ProbeForRead(regebp, sizeof(unsigned int) * 2,  sizeof(unsigned int));
-					next_regebp = (unsigned int *)*regebp;
-					event->stack_ret[stack_count] = *(regebp + 1);
-					stack_count ++;
+					unsigned int *next_user_ebp;
+
+					ProbeForRead(user_ebp, sizeof(unsigned int) * 2,  sizeof(unsigned int));
+					next_user_ebp = (unsigned int *)*user_ebp;
+					event->stack_ret[stack_count ++] = *(user_ebp + 1);
 	
 					if (stack_count >= MAX_STACK_FRAME ||
-							next_regebp <= regebp ||
-							next_regebp > regebp + 8192) // assume no stack frame > 32k
+							next_user_ebp <= user_ebp ||
+							next_user_ebp > user_ebp + 8192) // assume no stack frame > 32k
 						break;
-					regebp = next_regebp;
+					user_ebp = next_user_ebp;
 				}
 			} except(EXCEPTION_EXECUTE_HANDLER) {
-				//DbgPrint("x (%d,%d) %p %d %d\n", event->pid, event->tid, regebp, step, stack_count);
+				//DbgPrint("x (%d,%d) %p %d %d\n", event->pid, event->tid, user_ebp, step, stack_count);
 			}
 			event->stack_n = stack_count;
 		}
