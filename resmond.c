@@ -157,7 +157,7 @@ static void phash_query (struct proc_info *proc)
 		}
 	}
 	if (strncmp(proc->name, "\\??\\", 4) == 0)
-		memmove(proc->name, proc->name + 4, strlen(proc->name) - 4);
+		memmove(proc->name, proc->name + 4, strlen(proc->name) - 3);
 
 	if (OpenProcessToken(process, TOKEN_QUERY, &token)) {
 		if (GetTokenInformation(token, TokenUser, owner, sizeof(owner_buffer), &owner_size)) {
