@@ -104,12 +104,14 @@ static FLT_POSTOP_CALLBACK_STATUS on_post_op (PFLT_CALLBACK_DATA data, PCFLT_REL
 	case IRP_MJ_READ:
 		event->type = ET_FILE_READ;
 		event->file_rw.offset = data->Iopb->Parameters.Read.ByteOffset;
-		event->file_rw.length = data->Iopb->Parameters.Read.Length;
+		event->file_rw.req_length = data->Iopb->Parameters.Read.Length;
+		event->file_rw.ret_length = data->IoStatus.Information;
 		break;
 	case IRP_MJ_WRITE:
 		event->type = ET_FILE_WRITE;
 		event->file_rw.offset = data->Iopb->Parameters.Write.ByteOffset;
-		event->file_rw.length = data->Iopb->Parameters.Write.Length;
+		event->file_rw.req_length = data->Iopb->Parameters.Write.Length;
+		event->file_rw.ret_length = data->IoStatus.Information;
 		break;
 	case IRP_MJ_CREATE_MAILSLOT:
 		event->type = ET_FILE_CREATE_MAILSLOT;

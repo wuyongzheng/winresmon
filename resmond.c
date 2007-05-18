@@ -290,16 +290,18 @@ static void process_event (const struct event *event)
 		fprintf(out_file, "file_close" FIELD_SEP "%S" FIELD_SEP "", event->path);
 		break;
 	case ET_FILE_READ:
-		fprintf(out_file, "file_read" FIELD_SEP "%S" FIELD_SEP "addr=%I64u+%lu",
+		fprintf(out_file, "file_read" FIELD_SEP "%S" FIELD_SEP "addr=%I64u" PARAM_SEP "reqs=%lu" PARAM_SEP "rets=%lu",
 				event->path,
 				event->file_rw.offset.QuadPart,
-				event->file_rw.length);
+				event->file_rw.req_length,
+				event->file_rw.ret_length);
 		break;
 	case ET_FILE_WRITE:
-		fprintf(out_file, "file_write" FIELD_SEP "%S" FIELD_SEP "addr=%I64u+%lu",
+		fprintf(out_file, "file_write" FIELD_SEP "%S" FIELD_SEP "addr=%I64u" PARAM_SEP "reqs=%lu" PARAM_SEP "rets=%lu",
 				event->path,
 				event->file_rw.offset.QuadPart,
-				event->file_rw.length);
+				event->file_rw.req_length,
+				event->file_rw.ret_length);
 		break;
 	case ET_FILE_CREATE_MAILSLOT:
 		fprintf(out_file, "file_mslot" FIELD_SEP "%S", event->path);

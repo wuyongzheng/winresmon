@@ -76,7 +76,8 @@ struct event {
 		// http://msdn2.microsoft.com/en-us/library/ms795902.aspx
 		struct {
 			LARGE_INTEGER offset;
-			unsigned long length;
+			unsigned long req_length; // buffer size
+			unsigned long ret_length; // size read or written
 			char data[MAX_IO_SIZE];
 		} file_rw;
 		// http://msdn2.microsoft.com/en-us/library/ms796040.aspx
