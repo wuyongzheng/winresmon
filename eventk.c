@@ -52,9 +52,12 @@ struct event *event_buffer_start_add (void)
 					unsigned int *next_user_ebp;
 
 					ProbeForRead(user_ebp, sizeof(unsigned int) * 2,  sizeof(unsigned int));
-					next_user_ebp = (unsigned int *)*user_ebp;
+
+					if (*(user_ebp + 1) == 0)
+						break;
 					event->stack_ret[stack_count ++] = *(user_ebp + 1);
-	
+
+					next_user_ebp = (unsigned int *)*user_ebp;
 					if (stack_count >= MAX_STACK_FRAME ||
 							next_user_ebp <= user_ebp ||
 							next_user_ebp > user_ebp + 8192) // assume no stack frame > 32k
