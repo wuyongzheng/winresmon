@@ -19,7 +19,7 @@
 #define MAX_IO_SIZE 64    // number of bytes
 #define MAX_STACK_FRAME 32
 
-#define EVENT_BUFFER_SIZE 1024
+#define EVENT_BUFFER_SIZE 2048
 #define EVENT_BUFFER_THRESHOLD (EVENT_BUFFER_SIZE / 2)
 
 enum event_type {
