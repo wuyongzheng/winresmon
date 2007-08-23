@@ -264,8 +264,7 @@ static void process_event (const struct event *event)
 
 	proc = phash_get(event->pid);
 	if (proc->name[0] == '?' && proc->name[1] == '\0' &&
-			event->type == ET_PROC_IMAGE &&
-			(event->proc_image.base == (void*)0x01000000 || event->proc_image.base == (void*)0x00400000)) {
+			event->type == ET_PROC_IMAGE) {
 		sprintf_s(proc->name, sizeof(proc->name), "%S", event->path);
 	}
 
@@ -615,12 +614,12 @@ static DWORD service_init (void)
 	SYSTEMTIME local_time;
 	char out_file_name[100];
 
-	if(!SetPriorityClass(GetCurrentProcess(), ABOVE_NORMAL_PRIORITY_CLASS)) {
+	if(!SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS)) {
 		retval = GetLastError();
 		OutputDebugString("SetPriorityClass(GetCurrentProcess(), ABOVE_NORMAL_PRIORITY_CLASS) failed.\n");
 		return retval;
 	}
-	if(!SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL)) {
+	if(!SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST)) {
 		retval = GetLastError();
 		OutputDebugString("SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL) failed.\n");
 		return retval;
