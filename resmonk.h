@@ -39,13 +39,18 @@ void handle_table_stop (void);
 void handle_table_fini (void);
 
 struct event *event_buffer_start_add (void);
-void event_buffer_finish_add (void);
-void event_buffer_cancel_add (void);
+void event_buffer_finish_add (struct event *);
+void event_buffer_cancel_add (struct event *);
 void event_buffer_swap (void);
 NTSTATUS event_buffer_init (void);
 NTSTATUS event_buffer_start (void);
 void event_buffer_stop (void);
 void event_buffer_fini (void);
+
+NTSTATUS tdi_start (void);
+void tdi_stop (void);
+NTSTATUS tdi_init (void);
+void tdi_fini (void);
 
 NTSTATUS reg_start (void);
 void reg_stop (void);

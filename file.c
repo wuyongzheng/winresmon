@@ -35,7 +35,7 @@ static FLT_PREOP_CALLBACK_STATUS on_pre_close (PFLT_CALLBACK_DATA data, PCFLT_RE
 		event->path_length = MAX_PATH_SIZE - 1 < name_info->Name.Length / 2 ? MAX_PATH_SIZE - 1 : name_info->Name.Length / 2;
 		RtlCopyMemory(event->path, name_info->Name.Buffer, event->path_length * 2);
 		event->path[event->path_length] = 0;
-		event_buffer_finish_add();
+		event_buffer_finish_add(event);
 	}
 
 	FltReleaseFileNameInformation(name_info);
@@ -147,7 +147,7 @@ static FLT_POSTOP_CALLBACK_STATUS on_post_op (PFLT_CALLBACK_DATA data, PCFLT_REL
 		break;
 	default:
 		DbgPrint("resmon: unknown post MajorFunction %d\n", data->Iopb->MajorFunction);
-		event_buffer_cancel_add();
+		event_buffer_cancel_add(event);
 		event = NULL;
 	}
 
@@ -162,7 +162,7 @@ static FLT_POSTOP_CALLBACK_STATUS on_post_op (PFLT_CALLBACK_DATA data, PCFLT_REL
 			RtlCopyMemory(event->path, name_info->Name.Buffer, event->path_length * 2);
 			event->path[event->path_length] = 0;
 		}
-		event_buffer_finish_add();
+		event_buffer_finish_add(event);
 	}
 
 	FltReleaseFileNameInformation(name_info);

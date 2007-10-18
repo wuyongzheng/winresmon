@@ -69,14 +69,14 @@ int main (void)
 			return 1;
 		}
 
-		event_num = event_buffer->counters[!event_buffer->active];
+		event_num = event_buffer->reading_count;
 		if (event_num <= 0)
 			continue;
 		if (GetTickCount() >= last_report_tick + 1000 && recorded + event_num > last_report_num) {
 			printf("recorded=%8d, last=%8d, missed=%8d\n",
 					recorded + event_num,
-					event_buffer->buffers[!event_buffer->active][event_num - 1].serial,
-					event_buffer->missing);
+					event_buffer->pool[event_buffer->reading_tail].serial,
+					event_buffer->dropped);
 			last_report_tick = GetTickCount();
 			last_report_num = recorded + event_num;
 		}

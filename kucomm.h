@@ -20,7 +20,8 @@
 #define MAX_STACK_FRAME 32
 
 #define EVENT_BUFFER_SIZE 2048
-#define EVENT_BUFFER_THRESHOLD (EVENT_BUFFER_SIZE / 2)
+#define EVENT_BUFFER_FREE_THRESHOLD    (EVENT_BUFFER_SIZE / 2) // triger if free_count < it
+#define EVENT_BUFFER_WRITTEN_THRESHOLD (EVENT_BUFFER_SIZE / 4) // triger if written_count > it
 
 enum event_type {
 	ET_IGNORE,
@@ -48,10 +49,59 @@ enum event_type {
 	ET_PROC_THREAD_CREATE,
 	ET_PROC_THREAD_TERM,
 	ET_PROC_IMAGE,
+	ET_TDI_CLEANUP,                        // tdi_general
+	ET_TDI_CLOSE,                          // tdi_general
+	ET_TDI_CREATE,                         // tdi_create
+	ET_TDI_ACCEPT,                         // tdi_accept
+	ET_TDI_ACTION,                         // tdi_general
+	ET_TDI_ASSOCIATE_ADDRESS,              // tdi_associate_address
+	ET_TDI_CONNECT,                        // tdi_connect
+	ET_TDI_DISASSOCIATE_ADDRESS,           // tdi_general
+	ET_TDI_DISCONNECT,                     // tdi_disconnect
+	ET_TDI_LISTEN,                         // tdi_listen
+	ET_TDI_QUERY_INFORMATION,              // tdi_query_information
+	ET_TDI_RECEIVE,                        // tdi_receive
+	ET_TDI_RECEIVE_DATAGRAM,               // tdi_receive_datagram,
+	ET_TDI_SEND,                           // tdi_send,
+	ET_TDI_SEND_DATAGRAM,                  // tdi_send_datagram,
+	ET_TDI_SET_EVENT_HANDLER,              // tdi_set_event_handler,
+	ET_TDI_SET_INFORMATION,                // tdi_query_information,
+	ET_TDI_EVENT_CONNECT,                  // tdi_event_connect,
+	ET_TDI_EVENT_DISCONNECT,               // tdi_event_disconnect,
+	ET_TDI_EVENT_ERROR,                    // tdi_event_error,
+	ET_TDI_EVENT_RECEIVE,                  // tdi_event_receive,
+	ET_TDI_EVENT_RECEIVE_DATAGRAM,         // tdi_event_receive_datagram,
+	ET_TDI_EVENT_RECEIVE_EXPEDITED,        // tdi_event_receive,
+	ET_TDI_EVENT_SEND_POSSIBLE,            // tdi_event_send_possible,
+	ET_TDI_EVENT_CHAINED_RECEIVE,          // tdi_event_chained_receive,
+	ET_TDI_EVENT_CHAINED_RECEIVE_DATAGRAM, // tdi_event_chained_receive_datagram,
+	ET_TDI_EVENT_CHAINED_RECEIVE_EXPEDITED,// tdi_event_chained_receive,
+	ET_TDI_EVENT_ERROR_EX,                 // tdi_event_error_ex
 	NUMBER_OF_ET
 };
 
+/* only ipv4 currently */
+struct tdi_transport_address {
+	/* Unix' PF_ and winddk's TDI_ADDRESS_TYPE_ have different numbering.
+	 * Let's use winddk's since we are monitoring TDI here.
+	 * TDI_ADDRESS_TYPE_IP  = 2
+	 * TDI_ADDRESS_TYPE_IP6 = 23
+	 * family=0 means unspecified */
+	int family;
+	union {
+		struct {
+			unsigned short port; // network/big-endian byte order
+			unsigned char addr[4]; // network/big-endian byte order
+		} ipv4;
+		struct {
+			unsigned short port; // network/big-endian byte order
+			unsigned char addr[16]; // network/big-endian byte order
+		} ipv6;
+	};
+};
+
 struct event {
+	int next;
 	LARGE_INTEGER time; // from KeQuerySystemTime
 	unsigned int serial;
 	unsigned long pid;
@@ -250,14 +300,170 @@ struct event {
 			void *base;
 			unsigned int size;
 		} proc_image;
+		struct {
+			void *file_object;
+		} tdi_general;
+		struct {
+			void *file_object;
+			int type; // 1=control; 2=address; 3=connection
+			struct tdi_transport_address addr; // only valid when type=address.
+		} tdi_create;
+		struct {
+			void *file_object;
+			struct tdi_transport_address request_addr;
+			struct tdi_transport_address return_addr;
+		} tdi_accept;
+		struct {
+			void *file_object;
+			void *file_object2;
+		} tdi_associate_address;
+		struct {
+			void *file_object;
+			struct tdi_transport_address request_addr;
+			struct tdi_transport_address return_addr;
+			LARGE_INTEGER timeout;
+		} tdi_connect;
+		struct {
+			void *file_object;
+			unsigned long flags;
+			struct tdi_transport_address request_addr;
+			struct tdi_transport_address return_addr;
+			LARGE_INTEGER timeout;
+		} tdi_disconnect;
+		struct {
+			void *file_object;
+			unsigned long flags;
+			struct tdi_transport_address request_addr;
+			struct tdi_transport_address return_addr;
+		} tdi_listen;
+		struct {
+			void *file_object;
+			int type;
+			struct tdi_transport_address addr;
+			union {
+				struct {
+					unsigned long activity_count;
+					struct tdi_transport_address addr;
+				} address;
+				struct {
+					unsigned long status;
+					unsigned long event;
+					unsigned long transmitted_tsdus;
+					unsigned long received_tsdus;
+					unsigned long transmission_errors;
+					unsigned long receive_errors;
+					LARGE_INTEGER throughput;
+					LARGE_INTEGER delay;
+					unsigned long send_buffer_size;
+					unsigned long receive_buffer_size;
+					int unreliable; // boolean
+				} connection;
+			};
+		} tdi_query_information;
+		struct {
+			void *file_object;
+			int length;
+			unsigned long flags;
+			char data[MAX_IO_SIZE];
+		} tdi_receive;
+		struct {
+			void *file_object;
+			int length;
+			unsigned long flags;
+			struct tdi_transport_address request_addr;
+			struct tdi_transport_address return_addr;
+			char data[MAX_IO_SIZE];
+		} tdi_receive_datagram;
+		struct {
+			void *file_object;
+			int length;
+			unsigned long flags;
+			char data[MAX_IO_SIZE];
+		} tdi_send;
+		struct {
+			void *file_object;
+			int length;
+			struct tdi_transport_address addr;
+			char data[MAX_IO_SIZE];
+		} tdi_send_datagram;
+		struct {
+			void *file_object;
+			int type;
+			void *handler;
+			void *context;
+		} tdi_set_event_handler;
+		struct {
+			void *file_object;
+			struct tdi_transport_address addr;
+			int user_data_length;
+			int options_length;
+		} tdi_event_connect;
+		struct {
+			void *file_object;
+			int data_length;
+			int information_length;
+			unsigned long flags;
+		} tdi_event_disconnect;
+		struct {
+			void *file_object;
+			unsigned long cause_status;
+		} tdi_event_error;
+		struct {
+			void *file_object;
+			unsigned long flags;
+			int bytes_indicated;
+			int bytes_available;
+			int bytes_taken;
+			char data[MAX_IO_SIZE];
+		} tdi_event_receive;
+		struct {
+			void *file_object;
+			struct tdi_transport_address addr;
+			int options_length;
+			unsigned long flags;
+			int bytes_indicated;
+			int bytes_available;
+			int bytes_taken;
+			char data[MAX_IO_SIZE];
+		} tdi_event_receive_datagram;
+		struct {
+			void *file_object;
+			int bytes_available;
+		} tdi_event_send_possible;
+		struct {
+			void *file_object;
+			unsigned long flags;
+			int length;
+			char data[MAX_IO_SIZE];
+		} tdi_event_chained_receive;
+		struct {
+			void *file_object;
+			struct tdi_transport_address addr;
+			int options_length;
+			unsigned long flags;
+			int length;
+			char data[MAX_IO_SIZE];
+		} tdi_event_chained_receive_datagram;
+		struct {
+			void *file_object;
+			unsigned long cause_status;
+			char buffer[MAX_IO_SIZE];
+		} tdi_event_error_ex;
 	};
 };
 
 struct event_buffer {
-	int active; /* active is the one which keeps adding */
-	unsigned int missing;
-	unsigned int counters[2];
-	struct event buffers[2][EVENT_BUFFER_SIZE];
+	int free_head;
+	int free_count;
+	int reading_head;
+	int reading_tail;
+	int reading_count;
+	int written_head;
+	int written_tail;
+	int written_count;
+	unsigned int serial;
+	unsigned int dropped;
+	struct event pool [EVENT_BUFFER_SIZE];
 };
 
 #endif

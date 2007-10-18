@@ -64,7 +64,7 @@ static NTSTATUS resmon_Close   (HANDLE Handle)
 			event->reg_close.handle = Handle;
 			event->path_length = MAX_PATH_SIZE - 1 < ht_entry->name_length ? MAX_PATH_SIZE - 1 : ht_entry->name_length;
 			RtlCopyMemory(event->path, ht_entry->name, event->path_length * 2 + 2);
-			event_buffer_finish_add();
+			event_buffer_finish_add(event);
 		}
 //		DbgPrint("NtClose(%x, %x)\n", PsGetCurrentProcessId(), Handle);
 		htable_remove_entry(ht_entry);
@@ -98,7 +98,7 @@ static NTSTATUS resmon_CreateKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess
 				MAX_PATH_SIZE - 1 : ObjectAttributes->ObjectName->Length / 2;
 			RtlCopyMemory(event->path, ObjectAttributes->ObjectName->Buffer, event->path_length * 2);
 			event->path[event->path_length] = 0;
-			event_buffer_finish_add();
+			event_buffer_finish_add(event);
 		}
 		if (retval == STATUS_SUCCESS) {
 			struct htable_entry *htable_entry = htable_allocate_entry();
@@ -179,7 +179,7 @@ static NTSTATUS resmon_CreateKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess
 								(length - parent_entry->name_length - 1) * 2);
 				}
 				event->path[length] = 0;
-				event_buffer_finish_add();
+				event_buffer_finish_add(event);
 			}
 			if (retval == STATUS_SUCCESS) {
 				struct htable_entry *new_entry = htable_allocate_entry();
@@ -234,7 +234,7 @@ static NTSTATUS resmon_DeleteKey   (HANDLE KeyHandle)
 		event->reg_delete.handle = KeyHandle;
 		event->path_length = hentry->name_length;
 		RtlCopyMemory(event->path, hentry->name, hentry->name_length * 2 + 2);
-		event_buffer_finish_add();
+		event_buffer_finish_add(event);
 	}
 	htable_put_entry(hentry);
 
@@ -306,7 +306,7 @@ static NTSTATUS resmon_DeleteValueKey   (HANDLE KeyHandle, PUNICODE_STRING Value
 						ValueName->Buffer,
 						(event->path_length - parent_entry->name_length - 1) * 2);
 			event->path[event->path_length] = 0;
-			event_buffer_finish_add();
+			event_buffer_finish_add(event);
 		}
 		htable_put_entry(parent_entry);
 	} else {
@@ -350,7 +350,7 @@ static NTSTATUS resmon_OpenKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, 
 				MAX_PATH_SIZE - 1 : ObjectAttributes->ObjectName->Length / 2;
 			RtlCopyMemory(event->path, ObjectAttributes->ObjectName->Buffer, event->path_length * 2);
 			event->path[event->path_length] = 0;
-			event_buffer_finish_add();
+			event_buffer_finish_add(event);
 		}
 		if (retval == STATUS_SUCCESS) {
 			struct htable_entry *htable_entry = htable_allocate_entry();
@@ -430,7 +430,7 @@ static NTSTATUS resmon_OpenKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, 
 								(length - parent_entry->name_length - 1) * 2);
 				}
 				event->path[length] = 0;
-				event_buffer_finish_add();
+				event_buffer_finish_add(event);
 			}
 			if (retval == STATUS_SUCCESS) {
 				struct htable_entry *new_entry = htable_allocate_entry();
@@ -560,7 +560,7 @@ static NTSTATUS resmon_QueryValueKey   (HANDLE KeyHandle, PUNICODE_STRING ValueN
 						ValueName->Buffer,
 						(event->path_length - parent_entry->name_length - 1) * 2);
 			event->path[event->path_length] = 0;
-			event_buffer_finish_add();
+			event_buffer_finish_add(event);
 		}
 		htable_put_entry(parent_entry);
 	} else {
@@ -641,7 +641,7 @@ static NTSTATUS resmon_SetValueKey   (HANDLE KeyHandle, PUNICODE_STRING ValueNam
 						ValueName->Buffer,
 						(event->path_length - parent_entry->name_length - 1) * 2);
 			event->path[event->path_length] = 0;
-			event_buffer_finish_add();
+			event_buffer_finish_add(event);
 		}
 		htable_put_entry(parent_entry);
 	} else {

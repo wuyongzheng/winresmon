@@ -8,5 +8,5 @@ USE_MSVCRT = 1
 386_STDCALL = 0
 
 TARGETLIBS = ../zlib/zlib.lib $(SDK_LIB_PATH)/advapi32.lib $(SDK_LIB_PATH)/psapi.lib
-C_DEFINES = /DENABLE_GZIP /DTRACE_STACK
+C_DEFINES = /DTRACE_STACK
 SOURCES = ../resmond.c ../ntstatus.c

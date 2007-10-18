@@ -64,6 +64,17 @@ typedef enum _FILE_INFORMATION_CLASS {
 	FileMaximumInformation
 } FILE_INFORMATION_CLASS, *PFILE_INFORMATION_CLASS;
 
+#define TDI_QUERY_BROADCAST_ADDRESS      0x00000001
+#define TDI_QUERY_PROVIDER_INFO          0x00000002
+#define TDI_QUERY_ADDRESS_INFO           0x00000003
+#define TDI_QUERY_CONNECTION_INFO        0x00000004
+#define TDI_QUERY_PROVIDER_STATISTICS    0x00000005
+#define TDI_QUERY_DATAGRAM_INFO          0x00000006
+#define TDI_QUERY_DATA_LINK_ADDRESS      0x00000007
+#define TDI_QUERY_NETWORK_ADDRESS        0x00000008
+#define TDI_QUERY_MAX_DATAGRAM_INFO      0x00000009
+#define TDI_QUERY_ROUTING_INFO           0x0000000a
+
 extern const char *get_ntstatus_name (long status);
 
 struct proc_info {
@@ -221,6 +232,27 @@ static void phash_init (void)
 	CloseHandle(hToken);
 }
 
+static const char *print_binary (const unsigned char *data, int length)
+{
+	static char buff[MAX_IO_SIZE + 3];
+	int i;
+
+	if (length > MAX_IO_SIZE)
+		length = MAX_IO_SIZE;
+
+	buff[0] = '"';
+	for (i = 0; i < length; i ++) {
+		if (data[i] < ' ' || data[i] == '"' || data[i] > '~')
+			buff[i + 1] = '.';
+		else
+			buff[i + 1] = data[i];
+	}
+	buff[length + 1] = '"';
+	buff[length + 2] = '\0';
+
+	return buff;
+}
+
 static const short *filter_wstring (const short *str, int length)
 {
 	static short buff[MAX_PATH_SIZE];
@@ -251,6 +283,40 @@ static const short *filter_wstring (const short *str, int length)
 	}
 
 	return buff;
+}
+
+static unsigned short my_ntohs (unsigned short netshort)
+{
+	unsigned short result = 0;
+	((char *)&result)[0] = ((char *)&netshort)[1];
+	((char *)&result)[1] = ((char *)&netshort)[0];
+	return result;
+}
+
+static const char *print_tdi_transport_address (const struct tdi_transport_address *addr)
+{
+	static char buffer[4][32];
+	static unsigned int buffer_count = 0;
+	char *this_buffer = buffer[(buffer_count ++) % 4];
+
+	switch (addr->family) {
+	case 0:
+		strncpy(this_buffer, "null", 32);
+		break;
+	case 2:
+		sprintf_s(this_buffer, 32, "%u.%u.%u.%u:%u",
+				addr->ipv4.addr[0], addr->ipv4.addr[1],
+				addr->ipv4.addr[2], addr->ipv4.addr[3],
+				my_ntohs(addr->ipv4.port));
+		break;
+	case 23:
+		sprintf_s(this_buffer, 32, "ipv6"); //TODO
+		break;
+	default:
+		sprintf_s(this_buffer, 32, "%d", addr->family);
+	}
+
+	return this_buffer;
 }
 
 static void process_event (const struct event *event)
@@ -574,8 +640,254 @@ static void process_event (const struct event *event)
 				event->proc_image.base,
 				event->proc_image.size);
 		break;
+	case ET_TDI_CLEANUP:
+		out_fprintf(out_file, "tdi_cleanup" FIELD_SEP FIELD_SEP "f=0x%x",
+				event->tdi_general.file_object);
+		break;
+	case ET_TDI_CLOSE:
+		out_fprintf(out_file, "tdi_close" FIELD_SEP FIELD_SEP "f=0x%x",
+				event->tdi_general.file_object);
+		break;
+	case ET_TDI_CREATE:
+		out_fprintf(out_file, "tdi_create" FIELD_SEP FIELD_SEP
+				"f=0x%x" PARAM_SEP "type=%s" PARAM_SEP "addr=%s",
+				event->tdi_create.file_object,
+				event->tdi_create.type == 1 ? "control" :
+				event->tdi_create.type == 2 ? "address" : "connection",
+				print_tdi_transport_address(&event->tdi_create.addr));
+		break;
+	case ET_TDI_ACCEPT:
+		out_fprintf(out_file, "tdi_accept" FIELD_SEP FIELD_SEP
+				"f=0x%x" PARAM_SEP "reqaddr=%s" PARAM_SEP "retaddr=%s",
+				event->tdi_accept.file_object,
+				print_tdi_transport_address(&event->tdi_accept.request_addr),
+				print_tdi_transport_address(&event->tdi_accept.return_addr));
+		break;
+	case ET_TDI_ACTION:
+		out_fprintf(out_file, "tdi_action" FIELD_SEP FIELD_SEP "f=0x%x",
+				event->tdi_general.file_object);
+		break;
+	case ET_TDI_ASSOCIATE_ADDRESS:
+		out_fprintf(out_file, "tdi_associate_address" FIELD_SEP FIELD_SEP
+				"f=0x%x" PARAM_SEP "f2=0x%x",
+				event->tdi_associate_address.file_object,
+				event->tdi_associate_address.file_object2);
+		break;
+	case ET_TDI_CONNECT:
+		out_fprintf(out_file, "tdi_connect" FIELD_SEP FIELD_SEP
+				"f=0x%x" PARAM_SEP "reqaddr=%s" PARAM_SEP "retaddr=%s" PARAM_SEP "to=%I64u",
+				event->tdi_connect.file_object,
+				print_tdi_transport_address(&event->tdi_connect.request_addr),
+				print_tdi_transport_address(&event->tdi_connect.return_addr),
+				event->tdi_connect.timeout);
+		break;
+	case ET_TDI_DISASSOCIATE_ADDRESS:
+		out_fprintf(out_file, "tdi_disassociate_address" FIELD_SEP FIELD_SEP "f=0x%x",
+				event->tdi_general.file_object);
+		break;
+	case ET_TDI_DISCONNECT:
+		out_fprintf(out_file, "tdi_disconnect" FIELD_SEP FIELD_SEP
+				"f=0x%x" PARAM_SEP "flags=0x%x" PARAM_SEP
+				"reqaddr=%s" PARAM_SEP "retaddr=%s" PARAM_SEP "to=%I64u",
+				event->tdi_disconnect.file_object,
+				event->tdi_disconnect.flags,
+				print_tdi_transport_address(&event->tdi_disconnect.request_addr),
+				print_tdi_transport_address(&event->tdi_disconnect.return_addr),
+				event->tdi_disconnect.timeout);
+		break;
+	case ET_TDI_LISTEN:
+		out_fprintf(out_file, "tdi_listen" FIELD_SEP FIELD_SEP
+				"f=0x%x" PARAM_SEP "flags=0x%x" PARAM_SEP "reqaddr=%s" PARAM_SEP "retaddr=%s",
+				event->tdi_listen.file_object,
+				event->tdi_listen.flags,
+				print_tdi_transport_address(&event->tdi_listen.request_addr),
+				print_tdi_transport_address(&event->tdi_listen.return_addr));
+		break;
+	case ET_TDI_QUERY_INFORMATION:
+	case ET_TDI_SET_INFORMATION:
+		switch (event->tdi_query_information.type) {
+		case TDI_QUERY_ADDRESS_INFO:
+			out_fprintf(out_file, "%s" FIELD_SEP FIELD_SEP
+					"f=0x%x" PARAM_SEP "type=address" PARAM_SEP "addr=%s" PARAM_SEP
+					"info_ac=%u" PARAM_SEP "info_addr=%s",
+					event->type == ET_TDI_QUERY_INFORMATION ? "tdi_query_information" : "tdi_set_information",
+					event->tdi_query_information.file_object,
+					print_tdi_transport_address(&event->tdi_query_information.addr),
+					event->tdi_query_information.address.activity_count,
+					print_tdi_transport_address(&event->tdi_query_information.address.addr));
+			break;
+		case TDI_QUERY_CONNECTION_INFO:
+			out_fprintf(out_file, "%s" FIELD_SEP FIELD_SEP
+					"f=0x%x" PARAM_SEP "type=address" PARAM_SEP "addr=%s" PARAM_SEP
+					"info_status=%u" PARAM_SEP "info_event=%u" PARAM_SEP "info_tt=%u" PARAM_SEP
+					"info_rt=%u" PARAM_SEP "info_te=%u" PARAM_SEP "info_re=%u" PARAM_SEP
+					"info_throughput=%I64d" PARAM_SEP "info_delay=%I64d" PARAM_SEP
+					"info_sbs=%u" PARAM_SEP "info_rbs=%u" PARAM_SEP "info_unreliable=%s",
+					event->type == ET_TDI_QUERY_INFORMATION ? "tdi_query_information" : "tdi_set_information",
+					event->tdi_query_information.file_object,
+					print_tdi_transport_address(&event->tdi_query_information.addr),
+					event->tdi_query_information.connection.status,
+					event->tdi_query_information.connection.event,
+					event->tdi_query_information.connection.transmitted_tsdus,
+					event->tdi_query_information.connection.received_tsdus,
+					event->tdi_query_information.connection.transmission_errors,
+					event->tdi_query_information.connection.receive_errors,
+					event->tdi_query_information.connection.throughput,
+					event->tdi_query_information.connection.delay,
+					event->tdi_query_information.connection.send_buffer_size,
+					event->tdi_query_information.connection.receive_buffer_size,
+					event->tdi_query_information.connection.unreliable ? "yes" : "no");
+			break;
+		default:
+			out_fprintf(out_file, "%s" FIELD_SEP FIELD_SEP
+					"f=0x%x" PARAM_SEP "type=%d" PARAM_SEP "addr=%s",
+					event->type == ET_TDI_QUERY_INFORMATION ? "tdi_query_information" : "tdi_set_information",
+					event->tdi_query_information.file_object,
+					event->tdi_query_information.type,
+					print_tdi_transport_address(&event->tdi_query_information.addr));
+		}
+		break;
+	case ET_TDI_RECEIVE:
+		out_fprintf(out_file, "tdi_receive" FIELD_SEP FIELD_SEP
+				"f=0x%x" PARAM_SEP "len=%d" PARAM_SEP "flags=0x%x" PARAM_SEP "data=%s",
+				event->tdi_receive.file_object,
+				event->tdi_receive.length,
+				event->tdi_receive.flags,
+				print_binary(event->tdi_receive.data, event->tdi_receive.length));
+		break;
+	case ET_TDI_RECEIVE_DATAGRAM:
+		out_fprintf(out_file, "tdi_receive_datagram" FIELD_SEP FIELD_SEP
+				"f=0x%x" PARAM_SEP "len=%d" PARAM_SEP "flags=0x%x" PARAM_SEP
+				"reqaddr=%s" PARAM_SEP "retaddr=%s" PARAM_SEP "data=%s",
+				event->tdi_receive_datagram.file_object,
+				event->tdi_receive_datagram.length,
+				event->tdi_receive_datagram.flags,
+				print_tdi_transport_address(&event->tdi_receive_datagram.request_addr),
+				print_tdi_transport_address(&event->tdi_receive_datagram.return_addr),
+				print_binary(event->tdi_receive_datagram.data, event->tdi_receive_datagram.length));
+		break;
+	case ET_TDI_SEND:
+		out_fprintf(out_file, "tdi_send" FIELD_SEP FIELD_SEP
+				"f=0x%x" PARAM_SEP "len=%d" PARAM_SEP "flags=0x%x" PARAM_SEP "data=%s",
+				event->tdi_send.file_object,
+				event->tdi_send.length,
+				event->tdi_send.flags,
+				print_binary(event->tdi_send.data, event->tdi_send.length));
+		break;
+	case ET_TDI_SEND_DATAGRAM:
+		out_fprintf(out_file, "tdi_send_datagram" FIELD_SEP FIELD_SEP
+				"f=0x%x" PARAM_SEP "len=%d" PARAM_SEP "addr=%s" PARAM_SEP "data=%s",
+				event->tdi_send_datagram.file_object,
+				event->tdi_send_datagram.length,
+				print_tdi_transport_address(&event->tdi_send_datagram.addr),
+				print_binary(event->tdi_send_datagram.data, event->tdi_send_datagram.length));
+		break;
+	case ET_TDI_SET_EVENT_HANDLER:
+		out_fprintf(out_file, "tdi_set_event_handler" FIELD_SEP FIELD_SEP
+				"f=0x%x" PARAM_SEP "type=%d" PARAM_SEP "handler=0x%x" PARAM_SEP "context=0x%x",
+				event->tdi_set_event_handler.file_object,
+				event->tdi_set_event_handler.type,
+				event->tdi_set_event_handler.handler,
+				event->tdi_set_event_handler.context);
+		break;
+	case ET_TDI_EVENT_CONNECT:
+		out_fprintf(out_file, "tdi_event_connect" FIELD_SEP FIELD_SEP
+				"f=0x%x" PARAM_SEP "addr=%s" PARAM_SEP "udl=%d" PARAM_SEP "ol=%d",
+				event->tdi_event_connect.file_object,
+				print_tdi_transport_address(&event->tdi_event_connect.addr),
+				event->tdi_event_connect.user_data_length,
+				event->tdi_event_connect.options_length);
+		break;
+	case ET_TDI_EVENT_DISCONNECT:
+		out_fprintf(out_file, "tdi_event_disconnect" FIELD_SEP FIELD_SEP
+				"f=0x%x" PARAM_SEP "dl=%d" PARAM_SEP "id=%d" PARAM_SEP "flags=0x%x",
+				event->tdi_event_disconnect.file_object,
+				event->tdi_event_disconnect.data_length,
+				event->tdi_event_disconnect.information_length,
+				event->tdi_event_disconnect.flags);
+		break;
+	case ET_TDI_EVENT_ERROR:
+		out_fprintf(out_file, "tdi_event_error" FIELD_SEP FIELD_SEP
+				"f=0x%x" PARAM_SEP "cause=0x%x",
+				event->tdi_event_error.file_object,
+				event->tdi_event_error.cause_status);
+		break;
+	case ET_TDI_EVENT_RECEIVE:
+		out_fprintf(out_file, "tdi_event_receive" FIELD_SEP FIELD_SEP
+				"f=0x%x" PARAM_SEP "flags=0x%x" PARAM_SEP
+				"bi=%d" PARAM_SEP "ba=%d" PARAM_SEP "bt=%d" PARAM_SEP "data=%s",
+				event->tdi_event_receive.file_object,
+				event->tdi_event_receive.flags,
+				event->tdi_event_receive.bytes_indicated,
+				event->tdi_event_receive.bytes_available,
+				event->tdi_event_receive.bytes_taken,
+				print_binary(event->tdi_event_receive.data, event->tdi_event_receive.bytes_indicated));
+		break;
+	case ET_TDI_EVENT_RECEIVE_DATAGRAM:
+		out_fprintf(out_file, "tdi_event_receive_datagram" FIELD_SEP FIELD_SEP
+				"f=0x%x" PARAM_SEP "addr=%s" PARAM_SEP "ol=%d" PARAM_SEP "flags=0x%x" PARAM_SEP
+				"bi=%d" PARAM_SEP "ba=%d" PARAM_SEP "bt=%d" PARAM_SEP "data=%s",
+				event->tdi_event_receive_datagram.file_object,
+				print_tdi_transport_address(&event->tdi_event_receive_datagram.addr),
+				event->tdi_event_receive_datagram.options_length,
+				event->tdi_event_receive_datagram.flags,
+				event->tdi_event_receive_datagram.bytes_indicated,
+				event->tdi_event_receive_datagram.bytes_available,
+				event->tdi_event_receive_datagram.bytes_taken,
+				print_binary(event->tdi_event_receive_datagram.data, event->tdi_event_receive_datagram.bytes_indicated));
+		break;
+	case ET_TDI_EVENT_RECEIVE_EXPEDITED:
+		out_fprintf(out_file, "tdi_event_receive_expedited" FIELD_SEP FIELD_SEP
+				"f=0x%x" PARAM_SEP "flags=0x%x" PARAM_SEP
+				"bi=%d" PARAM_SEP "ba=%d" PARAM_SEP "bt=%d" PARAM_SEP "data=%s",
+				event->tdi_event_receive.file_object,
+				event->tdi_event_receive.flags,
+				event->tdi_event_receive.bytes_indicated,
+				event->tdi_event_receive.bytes_available,
+				event->tdi_event_receive.bytes_taken,
+				print_binary(event->tdi_event_receive.data, event->tdi_event_receive.bytes_indicated));
+		break;
+	case ET_TDI_EVENT_SEND_POSSIBLE:
+		out_fprintf(out_file, "tdi_event_send_possible" FIELD_SEP FIELD_SEP
+				"f=0x%x" PARAM_SEP "ba=%d",
+				event->tdi_event_send_possible.file_object,
+				event->tdi_event_send_possible.bytes_available);
+		break;
+	case ET_TDI_EVENT_CHAINED_RECEIVE:
+		out_fprintf(out_file, "tdi_event_chained_receive" FIELD_SEP FIELD_SEP
+				"f=0x%x" PARAM_SEP "flags=0x%x" PARAM_SEP "len=%d" PARAM_SEP "data=%s",
+				event->tdi_event_chained_receive.file_object,
+				event->tdi_event_chained_receive.flags,
+				event->tdi_event_chained_receive.length,
+				print_binary(event->tdi_event_chained_receive.data, event->tdi_event_chained_receive.length));
+		break;
+	case ET_TDI_EVENT_CHAINED_RECEIVE_DATAGRAM:
+		out_fprintf(out_file, "tdi_event_chained_receive_datagram" FIELD_SEP FIELD_SEP
+				"f=0x%x" PARAM_SEP "addr=%s" PARAM_SEP "ol=%d" PARAM_SEP
+				"flags=0x%x" PARAM_SEP, "len=%d" PARAM_SEP "data=%s",
+				event->tdi_event_chained_receive_datagram.file_object,
+				print_tdi_transport_address(&event->tdi_event_chained_receive_datagram.addr),
+				event->tdi_event_chained_receive_datagram.options_length,
+				event->tdi_event_chained_receive_datagram.flags,
+				event->tdi_event_chained_receive_datagram.length,
+				print_binary(event->tdi_event_chained_receive_datagram.data, event->tdi_event_chained_receive_datagram.length));
+		break;
+	case ET_TDI_EVENT_CHAINED_RECEIVE_EXPEDITED:
+		out_fprintf(out_file, "tdi_event_chained_receive_expedited" FIELD_SEP FIELD_SEP
+				"f=0x%x" PARAM_SEP "flags=0x%x" PARAM_SEP "len=%d" PARAM_SEP "data=%s",
+				event->tdi_event_chained_receive.file_object,
+				event->tdi_event_chained_receive.flags,
+				event->tdi_event_chained_receive.length,
+				print_binary(event->tdi_event_chained_receive.data, event->tdi_event_chained_receive.length));
+		break;
+	case ET_TDI_EVENT_ERROR_EX:
+		out_fprintf(out_file, "tdi_event_error_ex" FIELD_SEP FIELD_SEP
+				"f=0x%x" PARAM_SEP "cause=0x%x",
+				event->tdi_event_error_ex.file_object,
+				event->tdi_event_error_ex.cause_status);
+		break;
 	default:
-		out_fprintf(out_file, "unknown" FIELD_SEP FIELD_SEP);
+		out_fprintf(out_file, "unknown-%d" FIELD_SEP FIELD_SEP, event->type);
 	}
 
 #ifdef TRACE_STACK
@@ -696,8 +1008,6 @@ static DWORD service_process (void)
 	for (;;) {
 		DWORD retval;
 		DWORD wait_status;
-		int event_num;
-		struct event *events;
 		int i;
 
 		wait_status = WaitForMultipleObjects(2, objs, FALSE, config_service_wait);
@@ -725,10 +1035,8 @@ static DWORD service_process (void)
 			return retval;
 		}
 
-		event_num = event_buffer->counters[!event_buffer->active];
-		events = event_buffer->buffers[!event_buffer->active];
-		for (i = 0; i < event_num; i ++) {
-			process_event(&events[i]);
+		for (i = event_buffer->reading_head; i != -1; i = event_buffer->pool[i].next) {
+			process_event(&event_buffer->pool[i]);
 		}
 	}
 
@@ -906,8 +1214,6 @@ static int run_console (void)
 
 	for (;;) {
 		DWORD wait_status;
-		int event_num;
-		struct event *events;
 		int i;
 
 		// wait for at most 1 sec
@@ -928,10 +1234,8 @@ static int run_console (void)
 			return 1;
 		}
 
-		event_num = event_buffer->counters[!event_buffer->active];
-		events = event_buffer->buffers[!event_buffer->active];
-		for (i = 0; i < event_num; i ++) {
-			process_event(&events[i]);
+		for (i = event_buffer->reading_head; i != -1; i = event_buffer->pool[i].next) {
+			process_event(&event_buffer->pool[i]);
 		}
 	}
 

@@ -24,6 +24,9 @@ static NTSTATUS resmonk_start (void)
 	retval = event_buffer_start();
 	if (retval != STATUS_SUCCESS)
 		goto out2;
+	retval = tdi_start();
+	if (retval != STATUS_SUCCESS)
+		goto out25;
 	retval = file_start();
 	if (retval != STATUS_SUCCESS)
 		goto out3;
@@ -45,6 +48,8 @@ out5:
 out4:
 	file_stop();
 out3:
+	tdi_stop();
+out25:
 	event_buffer_stop();
 out2:
 	handle_table_stop();
@@ -62,6 +67,7 @@ static void resmonk_stop (void)
 	proc_stop();
 	reg_stop();
 	file_stop();
+	tdi_stop();
 	event_buffer_stop();
 	handle_table_stop();
 	starting = 0;
@@ -168,6 +174,7 @@ static void DriverUnload (PDRIVER_OBJECT DriverObject)
 	if (daemon_pid)
 		resmonk_stop();
 
+	tdi_fini();
 	handle_table_fini();
 	event_buffer_fini();
 	RtlInitUnicodeString(&str, L"\\DosDevices\\resmon");
@@ -222,6 +229,14 @@ NTSTATUS DriverEntry (PDRIVER_OBJECT DriverObject, PUNICODE_STRING RegistryPath)
 	}
 	status = handle_table_init();
 	if (status != STATUS_SUCCESS) {
+		event_buffer_fini();
+		IoDeleteSymbolicLink(&sym_name);
+		IoDeleteDevice(DriverObject->DeviceObject);
+		return status;
+	}
+	status = tdi_init();
+	if (status != STATUS_SUCCESS) {
+		handle_table_fini();
 		event_buffer_fini();
 		IoDeleteSymbolicLink(&sym_name);
 		IoDeleteDevice(DriverObject->DeviceObject);

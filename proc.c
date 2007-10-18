@@ -27,7 +27,7 @@ static void proc_notify_process (HANDLE ppid, HANDLE pid, BOOLEAN create)
 		event->path_length = 0;
 		event->path[0] = 0;
 	}
-	event_buffer_finish_add();
+	event_buffer_finish_add(event);
 
 	if (!create)
 		htable_remove_process_entries((unsigned long)pid);
@@ -57,7 +57,7 @@ static void proc_notify_thread (HANDLE pid, HANDLE tid, BOOLEAN create)
 		event->path_length = 0;
 		event->path[0] = 0;
 	}
-	event_buffer_finish_add();
+	event_buffer_finish_add(event);
 }
 
 static void proc_notify_image (PUNICODE_STRING name, HANDLE pid, PIMAGE_INFO info)
@@ -79,7 +79,7 @@ static void proc_notify_image (PUNICODE_STRING name, HANDLE pid, PIMAGE_INFO inf
 	event->path_length = MAX_PATH_SIZE - 1 < name->Length / 2 ? MAX_PATH_SIZE - 1 : name->Length / 2;
 	RtlCopyMemory(event->path, name->Buffer, event->path_length * 2);
 	event->path[event->path_length] = 0;
-	event_buffer_finish_add();
+	event_buffer_finish_add(event);
 }
 
 NTSTATUS proc_start (void)
