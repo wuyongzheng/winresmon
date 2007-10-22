@@ -429,7 +429,8 @@ static void process_event (const struct event *event)
 			out_fprintf(out_file, "file_queryinfo" FIELD_SEP "%S" FIELD_SEP
 					"t=FileNameInformation" PARAM_SEP "name=\"%S\"",
 					event->path,
-					event->file_info.info_data.file_info_name.file_name);
+					filter_wstring(event->file_info.info_data.file_info_name.file_name,
+						event->file_info.info_data.file_info_name.file_name_length));
 			break;
 		case FileNetworkOpenInformation:
 			out_fprintf(out_file, "file_queryinfo" FIELD_SEP "%S" FIELD_SEP
