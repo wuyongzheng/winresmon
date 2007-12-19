@@ -27,6 +27,12 @@ struct htable_entry {
 extern DRIVER_OBJECT *driver_object;
 extern unsigned long daemon_pid;
 
+#ifdef USERDTSC
+LARGE_INTEGER __cdecl get_timestamp (void);
+#else
+#define get_timestamp() KeQueryPerformanceCounter(NULL);
+#endif
+
 struct htable_entry *htable_allocate_entry (void);
 struct htable_entry *htable_get_entry (unsigned long pid, HANDLE handle);
 void htable_put_entry (struct htable_entry *entry);

@@ -15,6 +15,7 @@ static void proc_notify_process (HANDLE ppid, HANDLE pid, BOOLEAN create)
 	if (create) {
 		event->type = ET_PROC_PROC_CREATE;
 		event->status = 0;
+		event->time_pre = event->time_post = get_timestamp();
 		event->proc_proc_create.ppid = ppid;
 		event->proc_proc_create.pid = pid;
 		event->path_length = 0;
@@ -22,6 +23,7 @@ static void proc_notify_process (HANDLE ppid, HANDLE pid, BOOLEAN create)
 	} else {
 		event->type = ET_PROC_PROC_TERM;
 		event->status = 0;
+		event->time_pre = event->time_post = get_timestamp();
 		event->proc_proc_create.ppid = ppid;
 		event->proc_proc_create.pid = pid;
 		event->path_length = 0;
@@ -47,12 +49,14 @@ static void proc_notify_thread (HANDLE pid, HANDLE tid, BOOLEAN create)
 	if (create) {
 		event->type = ET_PROC_THREAD_CREATE;
 		event->status = 0;
+		event->time_pre = event->time_post = get_timestamp();
 		event->proc_thread_create.tid = tid;
 		event->path_length = 0;
 		event->path[0] = 0;
 	} else {
 		event->type = ET_PROC_THREAD_TERM;
 		event->status = 0;
+		event->time_pre = event->time_post = get_timestamp();
 		event->proc_thread_term.tid = tid;
 		event->path_length = 0;
 		event->path[0] = 0;
@@ -73,6 +77,7 @@ static void proc_notify_image (PUNICODE_STRING name, HANDLE pid, PIMAGE_INFO inf
 
 	event->type = ET_PROC_IMAGE;
 	event->status = 0;
+	event->time_pre = event->time_post = get_timestamp();
 	event->proc_image.system = info->SystemModeImage;
 	event->proc_image.base = info->ImageBase;
 	event->proc_image.size = info->ImageSize;

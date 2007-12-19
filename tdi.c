@@ -34,6 +34,7 @@ struct tdimon_context {
 	char parameters[16];
 	FILE_OBJECT *file_object;
 	PIO_COMPLETION_ROUTINE orig_cr;
+	LARGE_INTEGER time_pre;
 	unsigned long pid;
 	unsigned long tid;
 	void *orig_context;
@@ -235,7 +236,11 @@ static NTSTATUS tdimon_eh_connect (
 	IRP **accept_irp)
 {
 	struct event *event;
-	NTSTATUS status = (*(PTDI_IND_CONNECT)entry->orig_handler[TDI_EVENT_CONNECT])(
+	NTSTATUS status;
+	LARGE_INTEGER time_pre, time_post;
+
+	time_pre = get_timestamp();
+	status = (*(PTDI_IND_CONNECT)entry->orig_handler[TDI_EVENT_CONNECT])(
 			entry->orig_context[TDI_EVENT_DISCONNECT],
 			remote_address_length,
 			remote_address,
@@ -245,6 +250,7 @@ static NTSTATUS tdimon_eh_connect (
 			options,
 			connection_context,
 			accept_irp);
+	time_post = get_timestamp();
 	if (ESCAPE_CONDITION)
 		return status;
 	if ((event = event_buffer_start_add()) != NULL) {
@@ -252,6 +258,8 @@ static NTSTATUS tdimon_eh_connect (
 		event->tid = entry->tid;
 		event->type = ET_TDI_EVENT_CONNECT;
 		event->status = status;
+		event->time_pre = time_pre;
+		event->time_post = time_post;
 		event->path_length = 0;
 		event->path[0] = 0;
 		event->tdi_event_connect.file_object = entry->file_object;
@@ -273,7 +281,11 @@ static NTSTATUS tdimon_eh_disconnect (
 	unsigned long disconnect_flags)
 {
 	struct event *event;
-	NTSTATUS status = (*(PTDI_IND_DISCONNECT)entry->orig_handler[TDI_EVENT_DISCONNECT])(
+	NTSTATUS status;
+	LARGE_INTEGER time_pre, time_post;
+
+	time_pre = get_timestamp();
+	status = (*(PTDI_IND_DISCONNECT)entry->orig_handler[TDI_EVENT_DISCONNECT])(
 			entry->orig_context[TDI_EVENT_DISCONNECT],
 			connection_context,
 			disconnect_data_length,
@@ -281,6 +293,7 @@ static NTSTATUS tdimon_eh_disconnect (
 			disconnect_information_length,
 			disconnect_information,
 			disconnect_flags);
+	time_post = get_timestamp();
 	if (ESCAPE_CONDITION)
 		return status;
 	if ((event = event_buffer_start_add()) != NULL) {
@@ -288,6 +301,8 @@ static NTSTATUS tdimon_eh_disconnect (
 		event->tid = entry->tid;
 		event->type = ET_TDI_EVENT_DISCONNECT;
 		event->status = status;
+		event->time_pre = time_pre;
+		event->time_post = time_post;
 		event->path_length = 0;
 		event->path[0] = 0;
 		event->tdi_event_disconnect.file_object = entry->file_object;
@@ -304,9 +319,14 @@ static NTSTATUS tdimon_eh_error (
 	NTSTATUS cause_status)
 {
 	struct event *event;
-	NTSTATUS status = (*(PTDI_IND_ERROR)entry->orig_handler[TDI_EVENT_ERROR])(
+	NTSTATUS status;
+	LARGE_INTEGER time_pre, time_post;
+
+	time_pre = get_timestamp();
+	status = (*(PTDI_IND_ERROR)entry->orig_handler[TDI_EVENT_ERROR])(
 			entry->orig_context[TDI_EVENT_ERROR],
 			cause_status);
+	time_post = get_timestamp();
 	if (ESCAPE_CONDITION)
 		return status;
 	if ((event = event_buffer_start_add()) != NULL) {
@@ -314,6 +334,8 @@ static NTSTATUS tdimon_eh_error (
 		event->tid = entry->tid;
 		event->type = ET_TDI_EVENT_ERROR;
 		event->status = status;
+		event->time_pre = time_pre;
+		event->time_post = time_post;
 		event->path_length = 0;
 		event->path[0] = 0;
 		event->tdi_event_error.file_object = entry->file_object;
@@ -334,7 +356,11 @@ static NTSTATUS tdimon_eh_receive (
 	IRP **io_request_packet)
 {
 	struct event *event;
-	NTSTATUS status = (*(PTDI_IND_RECEIVE)entry->orig_handler[TDI_EVENT_RECEIVE])(
+	NTSTATUS status;
+	LARGE_INTEGER time_pre, time_post;
+
+	time_pre = get_timestamp();
+	status = (*(PTDI_IND_RECEIVE)entry->orig_handler[TDI_EVENT_RECEIVE])(
 			entry->orig_context[TDI_EVENT_RECEIVE],
 			connection_context,receive_flags,
 			bytes_indicated,
@@ -342,6 +368,7 @@ static NTSTATUS tdimon_eh_receive (
 			bytes_taken,
 			tsdu,
 			io_request_packet);
+	time_post = get_timestamp();
 	if (ESCAPE_CONDITION)
 		return status;
 	if ((event = event_buffer_start_add()) != NULL) {
@@ -349,6 +376,8 @@ static NTSTATUS tdimon_eh_receive (
 		event->tid = entry->tid;
 		event->type = ET_TDI_EVENT_RECEIVE;
 		event->status = status;
+		event->time_pre = time_pre;
+		event->time_post = time_post;
 		event->path_length = 0;
 		event->path[0] = 0;
 		event->tdi_event_receive.file_object = entry->file_object;
@@ -377,7 +406,11 @@ static NTSTATUS tdimon_eh_receive_datagram (
 	IRP **io_request_packet)
 {
 	struct event *event;
-	NTSTATUS status = (*(PTDI_IND_RECEIVE_DATAGRAM)entry->orig_handler[TDI_EVENT_RECEIVE_DATAGRAM])(
+	NTSTATUS status;
+	LARGE_INTEGER time_pre, time_post;
+
+	time_pre = get_timestamp();
+	status = (*(PTDI_IND_RECEIVE_DATAGRAM)entry->orig_handler[TDI_EVENT_RECEIVE_DATAGRAM])(
 			entry->orig_context[TDI_EVENT_RECEIVE_DATAGRAM],
 			source_address_length,
 			source_address,
@@ -389,6 +422,7 @@ static NTSTATUS tdimon_eh_receive_datagram (
 			bytes_taken,
 			tsdu,
 			io_request_packet);
+	time_post = get_timestamp();
 	if (ESCAPE_CONDITION)
 		return status;
 	if ((event = event_buffer_start_add()) != NULL) {
@@ -396,6 +430,8 @@ static NTSTATUS tdimon_eh_receive_datagram (
 		event->tid = entry->tid;
 		event->type = ET_TDI_EVENT_RECEIVE_DATAGRAM;
 		event->status = status;
+		event->time_pre = time_pre;
+		event->time_post = time_post;
 		event->path_length = 0;
 		event->path[0] = 0;
 		event->tdi_event_receive_datagram.file_object = entry->file_object;
@@ -423,7 +459,11 @@ static NTSTATUS tdimon_eh_receive_expedited (
 	IRP **io_request_packet)
 {
 	struct event *event;
-	NTSTATUS status = (*(PTDI_IND_RECEIVE_EXPEDITED)entry->orig_handler[TDI_EVENT_RECEIVE_EXPEDITED])(
+	NTSTATUS status;
+	LARGE_INTEGER time_pre, time_post;
+
+	time_pre = get_timestamp();
+	status = (*(PTDI_IND_RECEIVE_EXPEDITED)entry->orig_handler[TDI_EVENT_RECEIVE_EXPEDITED])(
 			entry->orig_context[TDI_EVENT_RECEIVE_EXPEDITED],
 			connection_context,
 			receive_flags,
@@ -432,6 +472,7 @@ static NTSTATUS tdimon_eh_receive_expedited (
 			bytes_taken,
 			tsdu,
 			io_request_packet);
+	time_post = get_timestamp();
 	if (ESCAPE_CONDITION)
 		return status;
 	if ((event = event_buffer_start_add()) != NULL) {
@@ -439,6 +480,8 @@ static NTSTATUS tdimon_eh_receive_expedited (
 		event->tid = entry->tid;
 		event->type = ET_TDI_EVENT_RECEIVE_EXPEDITED;
 		event->status = status;
+		event->time_pre = time_pre;
+		event->time_post = time_post;
 		event->path_length = 0;
 		event->path[0] = 0;
 		event->tdi_event_receive.file_object = entry->file_object;
@@ -459,10 +502,15 @@ static NTSTATUS tdimon_eh_send_possible (
 	unsigned long bytes_available)
 {
 	struct event *event;
-	NTSTATUS status = (*(PTDI_IND_SEND_POSSIBLE)entry->orig_handler[TDI_EVENT_SEND_POSSIBLE])(
+	NTSTATUS status;
+	LARGE_INTEGER time_pre, time_post;
+
+	time_pre = get_timestamp();
+	status = (*(PTDI_IND_SEND_POSSIBLE)entry->orig_handler[TDI_EVENT_SEND_POSSIBLE])(
 			entry->orig_context[TDI_EVENT_SEND_POSSIBLE],
 			connection_context,
 			bytes_available);
+	time_post = get_timestamp();
 	if (ESCAPE_CONDITION)
 		return status;
 	if ((event = event_buffer_start_add()) != NULL) {
@@ -470,6 +518,8 @@ static NTSTATUS tdimon_eh_send_possible (
 		event->tid = entry->tid;
 		event->type = ET_TDI_EVENT_SEND_POSSIBLE;
 		event->status = status;
+		event->time_pre = time_pre;
+		event->time_post = time_post;
 		event->path_length = 0;
 		event->path[0] = 0;
 		event->tdi_event_send_possible.file_object = entry->file_object;
@@ -489,8 +539,12 @@ static NTSTATUS tdimon_eh_chained_receive (
 	void *tsdu_descriptor)
 {
 	struct event *event;
+	NTSTATUS status;
 	char *data;
-	NTSTATUS status = (*(PTDI_IND_CHAINED_RECEIVE)entry->orig_handler[TDI_EVENT_CHAINED_RECEIVE])(
+	LARGE_INTEGER time_pre, time_post;
+
+	time_pre = get_timestamp();
+	status = (*(PTDI_IND_CHAINED_RECEIVE)entry->orig_handler[TDI_EVENT_CHAINED_RECEIVE])(
 			entry->orig_context[TDI_EVENT_CHAINED_RECEIVE],
 			connection_context,
 			receive_flags,
@@ -498,6 +552,7 @@ static NTSTATUS tdimon_eh_chained_receive (
 			starting_offset,
 			tsdu,
 			tsdu_descriptor);
+	time_post = get_timestamp();
 	if (ESCAPE_CONDITION)
 		return status;
 	if (receive_length > 0)
@@ -507,6 +562,8 @@ static NTSTATUS tdimon_eh_chained_receive (
 		event->tid = entry->tid;
 		event->type = ET_TDI_EVENT_CHAINED_RECEIVE;
 		event->status = status;
+		event->time_pre = time_pre;
+		event->time_post = time_post;
 		event->path_length = 0;
 		event->path[0] = 0;
 		event->tdi_event_chained_receive.file_object = entry->file_object;
@@ -534,8 +591,12 @@ static NTSTATUS tdimon_eh_chained_receive_datagram (
 	void *tsdu_descriptor)
 {
 	struct event *event;
+	NTSTATUS status;
 	char *data;
-	NTSTATUS status = (*(PTDI_IND_CHAINED_RECEIVE_DATAGRAM)entry->orig_handler[TDI_EVENT_CHAINED_RECEIVE_DATAGRAM])(
+	LARGE_INTEGER time_pre, time_post;
+
+	time_pre = get_timestamp();
+	status = (*(PTDI_IND_CHAINED_RECEIVE_DATAGRAM)entry->orig_handler[TDI_EVENT_CHAINED_RECEIVE_DATAGRAM])(
 			entry->orig_context[TDI_EVENT_CHAINED_RECEIVE_DATAGRAM],
 			source_address_length,
 			source_address,
@@ -546,6 +607,7 @@ static NTSTATUS tdimon_eh_chained_receive_datagram (
 			starting_offset,
 			tsdu,
 			tsdu_descriptor);
+	time_post = get_timestamp();
 	if (ESCAPE_CONDITION)
 		return status;
 	if (receive_datagram_length > 0)
@@ -555,6 +617,8 @@ static NTSTATUS tdimon_eh_chained_receive_datagram (
 		event->tid = entry->tid;
 		event->type = ET_TDI_EVENT_CHAINED_RECEIVE_DATAGRAM;
 		event->status = status;
+		event->time_pre = time_pre;
+		event->time_post = time_post;
 		event->path_length = 0;
 		event->path[0] = 0;
 		event->tdi_event_chained_receive_datagram.file_object = entry->file_object;
@@ -581,8 +645,12 @@ static NTSTATUS tdimon_eh_chained_receive_expedited (
 	void *tsdu_descriptor)
 {
 	struct event *event;
+	NTSTATUS status;
 	char *data;
-	NTSTATUS status = (*(PTDI_IND_CHAINED_RECEIVE_EXPEDITED)entry->orig_handler[TDI_EVENT_CHAINED_RECEIVE_EXPEDITED])(
+	LARGE_INTEGER time_pre, time_post;
+
+	time_pre = get_timestamp();
+	status = (*(PTDI_IND_CHAINED_RECEIVE_EXPEDITED)entry->orig_handler[TDI_EVENT_CHAINED_RECEIVE_EXPEDITED])(
 			entry->orig_context[TDI_EVENT_CHAINED_RECEIVE_EXPEDITED],
 			connection_context,
 			receive_flags,
@@ -590,6 +658,7 @@ static NTSTATUS tdimon_eh_chained_receive_expedited (
 			starting_offset,
 			tsdu,
 			tsdu_descriptor);
+	time_post = get_timestamp();
 	if (ESCAPE_CONDITION)
 		return status;
 	if (receive_length > 0)
@@ -599,6 +668,8 @@ static NTSTATUS tdimon_eh_chained_receive_expedited (
 		event->tid = entry->tid;
 		event->type = ET_TDI_EVENT_CHAINED_RECEIVE_EXPEDITED;
 		event->status = status;
+		event->time_pre = time_pre;
+		event->time_post = time_post;
 		event->path_length = 0;
 		event->path[0] = 0;
 		event->tdi_event_chained_receive.file_object = entry->file_object;
@@ -618,10 +689,15 @@ static NTSTATUS tdimon_eh_error_ex (
 	void *buffer)
 {
 	struct event *event;
-	NTSTATUS status = (*(PTDI_IND_ERROR_EX)entry->orig_handler[TDI_EVENT_ERROR_EX])(
+	NTSTATUS status;
+	LARGE_INTEGER time_pre, time_post;
+
+	time_pre = get_timestamp();
+	status = (*(PTDI_IND_ERROR_EX)entry->orig_handler[TDI_EVENT_ERROR_EX])(
 			entry->orig_context[TDI_EVENT_ERROR_EX],
 			cause_status,
 			buffer);
+	time_post = get_timestamp();
 	if (ESCAPE_CONDITION)
 		return status;
 	if ((event = event_buffer_start_add()) != NULL) {
@@ -629,6 +705,8 @@ static NTSTATUS tdimon_eh_error_ex (
 		event->tid = entry->tid;
 		event->type = ET_TDI_EVENT_ERROR_EX;
 		event->status = status;
+		event->time_pre = time_pre;
+		event->time_post = time_post;
 		event->path_length = 0;
 		event->path[0] = 0;
 		event->tdi_event_error_ex.file_object = entry->file_object;
@@ -661,34 +739,29 @@ static NTSTATUS tdimon_idc_cr (DEVICE_OBJECT *device_object, IRP *irp, struct td
 	if (ESCAPE_CONDITION)
 		goto out;
 
+	event = event_buffer_start_add();
+	if (event == NULL)
+		goto out;
+	event->pid = context->pid;
+	event->tid = context->tid;
+	event->status = irp->IoStatus.Status;
+	event->time_pre = context->time_pre;
+	event->time_post = get_timestamp();
+	event->path_length = 0;
+	event->path[0] = 0;
+
 	switch (context->minor_function) {
 	case TDI_ACCEPT:
-		if ((event = event_buffer_start_add()) != NULL) {
-			event->pid = context->pid;
-			event->tid = context->tid;
-			event->type = ET_TDI_ACCEPT;
-			event->status = irp->IoStatus.Status;
-			event->path_length = 0;
-			event->path[0] = 0;
-			event->tdi_accept.file_object = context->file_object;
-			store_conninfor(&event->tdi_accept.request_addr,
-					((TDI_REQUEST_KERNEL *)context->parameters)->RequestConnectionInformation);
-			store_conninfor(&event->tdi_accept.return_addr,
-					((TDI_REQUEST_KERNEL *)context->parameters)->ReturnConnectionInformation);
-			event_buffer_finish_add(event);
-		}
+		event->type = ET_TDI_ACCEPT;
+		event->tdi_accept.file_object = context->file_object;
+		store_conninfor(&event->tdi_accept.request_addr,
+				((TDI_REQUEST_KERNEL *)context->parameters)->RequestConnectionInformation);
+		store_conninfor(&event->tdi_accept.return_addr,
+				((TDI_REQUEST_KERNEL *)context->parameters)->ReturnConnectionInformation);
 		break;
 	case TDI_ACTION:
-		if ((event = event_buffer_start_add()) != NULL) {
-			event->pid = context->pid;
-			event->tid = context->tid;
-			event->type = ET_TDI_ACTION;
-			event->status = irp->IoStatus.Status;
-			event->path_length = 0;
-			event->path[0] = 0;
-			event->tdi_general.file_object = context->file_object;
-			event_buffer_finish_add(event);
-		}
+		event->type = ET_TDI_ACTION;
+		event->tdi_general.file_object = context->file_object;
 		break;
 	case TDI_ASSOCIATE_ADDRESS: {
 		FILE_OBJECT *file_obj = NULL;
@@ -702,265 +775,173 @@ static NTSTATUS tdimon_idc_cr (DEVICE_OBJECT *device_object, IRP *irp, struct td
 		} else {
 			file_obj = NULL;
 		}
-		if ((event = event_buffer_start_add()) != NULL) {
-			event->pid = context->pid;
-			event->tid = context->tid;
-			event->type = ET_TDI_ASSOCIATE_ADDRESS;
-			event->status = irp->IoStatus.Status;
-			event->path_length = 0;
-			event->path[0] = 0;
-			event->tdi_associate_address.file_object = context->file_object;
-			event->tdi_associate_address.file_object2 = file_obj;
-			event_buffer_finish_add(event);
-		}
+		event->type = ET_TDI_ASSOCIATE_ADDRESS;
+		event->tdi_associate_address.file_object = context->file_object;
+		event->tdi_associate_address.file_object2 = file_obj;
 		if (file_obj != NULL)
 			ObDereferenceObject(file_obj);
 		break;
 	}
 	case TDI_CONNECT:
-		if ((event = event_buffer_start_add()) != NULL) {
-			event->pid = context->pid;
-			event->tid = context->tid;
-			event->type = ET_TDI_CONNECT;
-			event->status = irp->IoStatus.Status;
-			event->path_length = 0;
-			event->path[0] = 0;
-			event->tdi_connect.file_object = context->file_object;
-			store_conninfor(&event->tdi_connect.request_addr,
-					((TDI_REQUEST_KERNEL *)context->parameters)->RequestConnectionInformation);
-			store_conninfor(&event->tdi_connect.return_addr,
-					((TDI_REQUEST_KERNEL *)context->parameters)->ReturnConnectionInformation);
-			event->tdi_connect.timeout.QuadPart =
-				((TDI_REQUEST_KERNEL *)context->parameters)->RequestSpecific == NULL ? 0:
-				*(long long *)((TDI_REQUEST_KERNEL *)context->parameters)->RequestSpecific;
-			event_buffer_finish_add(event);
-		}
+		event->type = ET_TDI_CONNECT;
+		event->tdi_connect.file_object = context->file_object;
+		store_conninfor(&event->tdi_connect.request_addr,
+				((TDI_REQUEST_KERNEL *)context->parameters)->RequestConnectionInformation);
+		store_conninfor(&event->tdi_connect.return_addr,
+				((TDI_REQUEST_KERNEL *)context->parameters)->ReturnConnectionInformation);
+		event->tdi_connect.timeout.QuadPart =
+			((TDI_REQUEST_KERNEL *)context->parameters)->RequestSpecific == NULL ? 0:
+			*(long long *)((TDI_REQUEST_KERNEL *)context->parameters)->RequestSpecific;
 		break;
 	case TDI_DISASSOCIATE_ADDRESS:
-		if ((event = event_buffer_start_add()) != NULL) {
-			event->pid = context->pid;
-			event->tid = context->tid;
-			event->type = ET_TDI_DISASSOCIATE_ADDRESS;
-			event->status = irp->IoStatus.Status;
-			event->path_length = 0;
-			event->path[0] = 0;
-			event->tdi_general.file_object = context->file_object;
-			event_buffer_finish_add(event);
-		}
+		event->type = ET_TDI_DISASSOCIATE_ADDRESS;
+		event->tdi_general.file_object = context->file_object;
 		break;
 	case TDI_DISCONNECT:
-		if ((event = event_buffer_start_add()) != NULL) {
-			event->pid = context->pid;
-			event->tid = context->tid;
-			event->type = ET_TDI_DISCONNECT;
-			event->status = irp->IoStatus.Status;
-			event->path_length = 0;
-			event->path[0] = 0;
-			event->tdi_disconnect.file_object = context->file_object;
-			event->tdi_disconnect.flags = ((TDI_REQUEST_KERNEL *)context->parameters)->RequestFlags;
-			store_conninfor(&event->tdi_disconnect.request_addr,
-					((TDI_REQUEST_KERNEL *)context->parameters)->RequestConnectionInformation);
-			store_conninfor(&event->tdi_disconnect.return_addr,
-					((TDI_REQUEST_KERNEL *)context->parameters)->ReturnConnectionInformation);
-			event->tdi_disconnect.timeout.QuadPart =
-				((TDI_REQUEST_KERNEL *)context->parameters)->RequestSpecific == NULL ? 0 :
-				*(long long *)((TDI_REQUEST_KERNEL *)context->parameters)->RequestSpecific;
-			event_buffer_finish_add(event);
-		}
+		event->type = ET_TDI_DISCONNECT;
+		event->tdi_disconnect.file_object = context->file_object;
+		event->tdi_disconnect.flags = ((TDI_REQUEST_KERNEL *)context->parameters)->RequestFlags;
+		store_conninfor(&event->tdi_disconnect.request_addr,
+				((TDI_REQUEST_KERNEL *)context->parameters)->RequestConnectionInformation);
+		store_conninfor(&event->tdi_disconnect.return_addr,
+				((TDI_REQUEST_KERNEL *)context->parameters)->ReturnConnectionInformation);
+		event->tdi_disconnect.timeout.QuadPart =
+			((TDI_REQUEST_KERNEL *)context->parameters)->RequestSpecific == NULL ? 0 :
+			*(long long *)((TDI_REQUEST_KERNEL *)context->parameters)->RequestSpecific;
 		break;
 	case TDI_LISTEN:
-		if ((event = event_buffer_start_add()) != NULL) {
-			event->pid = context->pid;
-			event->tid = context->tid;
-			event->type = ET_TDI_LISTEN;
-			event->status = irp->IoStatus.Status;
-			event->path_length = 0;
-			event->path[0] = 0;
-			event->tdi_listen.file_object = context->file_object;
-			event->tdi_listen.flags = ((TDI_REQUEST_KERNEL *)context->parameters)->RequestFlags;
-			store_conninfor(&event->tdi_listen.request_addr,
-					((TDI_REQUEST_KERNEL *)context->parameters)->RequestConnectionInformation);
-			store_conninfor(&event->tdi_listen.return_addr,
-					((TDI_REQUEST_KERNEL *)context->parameters)->ReturnConnectionInformation);
-			event_buffer_finish_add(event);
-		}
+		event->type = ET_TDI_LISTEN;
+		event->tdi_listen.file_object = context->file_object;
+		event->tdi_listen.flags = ((TDI_REQUEST_KERNEL *)context->parameters)->RequestFlags;
+		store_conninfor(&event->tdi_listen.request_addr,
+				((TDI_REQUEST_KERNEL *)context->parameters)->RequestConnectionInformation);
+		store_conninfor(&event->tdi_listen.return_addr,
+				((TDI_REQUEST_KERNEL *)context->parameters)->ReturnConnectionInformation);
 		break;
 	case TDI_QUERY_INFORMATION: {
 		TDI_REQUEST_KERNEL_QUERY_INFORMATION *info = (TDI_REQUEST_KERNEL_QUERY_INFORMATION *)context->parameters;
 		char *mdl_address = MmGetSystemAddressForMdlSafe(irp->MdlAddress, NormalPagePriority);
-		if ((event = event_buffer_start_add()) != NULL) {
-			event->pid = context->pid;
-			event->tid = context->tid;
-			event->type = ET_TDI_QUERY_INFORMATION;
-			event->status = irp->IoStatus.Status;
-			event->path_length = 0;
-			event->path[0] = 0;
-			event->tdi_query_information.file_object = context->file_object;
-			event->tdi_query_information.type = info->QueryType;
-			store_conninfor(&event->tdi_query_information.addr, info->RequestConnectionInformation);
-			if (mdl_address != NULL) {
-				switch (event->tdi_query_information.type) {
-				case TDI_QUERY_ADDRESS_INFO:
-					event->tdi_query_information.address.activity_count =
-						((TDI_ADDRESS_INFO *)mdl_address)->ActivityCount;
-					store_trans_addr(&event->tdi_query_information.address.addr,
-							&((TDI_ADDRESS_INFO *)mdl_address)->Address);
-					break;
-				case TDI_QUERY_CONNECTION_INFO:
-					RtlCopyMemory(&event->tdi_query_information.connection,
-							mdl_address, sizeof(TDI_CONNECTION_INFO));
-					break;
-				}
+		event->type = ET_TDI_QUERY_INFORMATION;
+		event->tdi_query_information.file_object = context->file_object;
+		event->tdi_query_information.type = info->QueryType;
+		store_conninfor(&event->tdi_query_information.addr, info->RequestConnectionInformation);
+		if (mdl_address != NULL) {
+			switch (event->tdi_query_information.type) {
+			case TDI_QUERY_ADDRESS_INFO:
+				event->tdi_query_information.address.activity_count =
+					((TDI_ADDRESS_INFO *)mdl_address)->ActivityCount;
+				store_trans_addr(&event->tdi_query_information.address.addr,
+						&((TDI_ADDRESS_INFO *)mdl_address)->Address);
+				break;
+			case TDI_QUERY_CONNECTION_INFO:
+				RtlCopyMemory(&event->tdi_query_information.connection,
+						mdl_address, sizeof(TDI_CONNECTION_INFO));
+				break;
 			}
-			// TODO: else?
-			event_buffer_finish_add(event);
 		}
+		// TODO: else?
 		break;
 	}
 	case TDI_RECEIVE: {
 		char *mdl_address = MmGetSystemAddressForMdlSafe(irp->MdlAddress, NormalPagePriority);
-		if ((event = event_buffer_start_add()) != NULL) {
-			event->pid = context->pid;
-			event->tid = context->tid;
-			event->type = ET_TDI_RECEIVE;
-			event->status = irp->IoStatus.Status;
-			event->path_length = 0;
-			event->path[0] = 0;
-			event->tdi_receive.file_object = context->file_object;
-			event->tdi_receive.length = ((TDI_REQUEST_KERNEL_RECEIVE *)context->parameters)->ReceiveLength;
-			event->tdi_receive.flags = ((TDI_REQUEST_KERNEL_RECEIVE *)context->parameters)->ReceiveFlags;
-			if (mdl_address != NULL && event->tdi_receive.length > 0)
-				RtlCopyMemory(event->tdi_receive.data,
-						mdl_address,// + MmGetMdlByteOffset(irp->MdlAddress),
-						event->tdi_receive.length < MAX_IO_SIZE ?
-						event->tdi_receive.length : MAX_IO_SIZE);
-			// TODO: what if mdl_address == NULL and event->tdi_receive.length > 0?
-			// same for all TDI_RECEIVE_* below
-			event_buffer_finish_add(event);
-		}
+		event->type = ET_TDI_RECEIVE;
+		event->tdi_receive.file_object = context->file_object;
+		event->tdi_receive.length = ((TDI_REQUEST_KERNEL_RECEIVE *)context->parameters)->ReceiveLength;
+		event->tdi_receive.flags = ((TDI_REQUEST_KERNEL_RECEIVE *)context->parameters)->ReceiveFlags;
+		if (mdl_address != NULL && event->tdi_receive.length > 0)
+			RtlCopyMemory(event->tdi_receive.data,
+					mdl_address,// + MmGetMdlByteOffset(irp->MdlAddress),
+					event->tdi_receive.length < MAX_IO_SIZE ?
+					event->tdi_receive.length : MAX_IO_SIZE);
+		// TODO: what if mdl_address == NULL and event->tdi_receive.length > 0?
+		// same for all TDI_RECEIVE_* below
 		break;
 	}
 	case TDI_RECEIVE_DATAGRAM: {
 		char *mdl_address = MmGetSystemAddressForMdlSafe(irp->MdlAddress, NormalPagePriority);
-		if ((event = event_buffer_start_add()) != NULL) {
-			event->pid = context->pid;
-			event->tid = context->tid;
-			event->type = ET_TDI_RECEIVE_DATAGRAM;
-			event->status = irp->IoStatus.Status;
-			event->path_length = 0;
-			event->path[0] = 0;
-			event->tdi_receive_datagram.file_object = context->file_object;
-			event->tdi_receive_datagram.length = ((TDI_REQUEST_KERNEL_RECEIVEDG *)context->parameters)->ReceiveLength;
-			event->tdi_receive_datagram.flags = ((TDI_REQUEST_KERNEL_RECEIVEDG *)context->parameters)->ReceiveFlags;
-			store_conninfor(&event->tdi_receive_datagram.request_addr,
-					((TDI_REQUEST_KERNEL_RECEIVEDG *)context->parameters)->ReceiveDatagramInformation);
-			store_conninfor(&event->tdi_receive_datagram.return_addr,
-					((TDI_REQUEST_KERNEL_RECEIVEDG *)context->parameters)->ReturnDatagramInformation);
-			if (mdl_address != NULL && event->tdi_receive_datagram.length > 0)
-				RtlCopyMemory(event->tdi_receive_datagram.data,
-						mdl_address,// + MmGetMdlByteOffset(irp->MdlAddress),
-						event->tdi_receive_datagram.length < MAX_IO_SIZE ?
-						event->tdi_receive_datagram.length : MAX_IO_SIZE);
-			event_buffer_finish_add(event);
-		}
+		event->type = ET_TDI_RECEIVE_DATAGRAM;
+		event->tdi_receive_datagram.file_object = context->file_object;
+		event->tdi_receive_datagram.length = ((TDI_REQUEST_KERNEL_RECEIVEDG *)context->parameters)->ReceiveLength;
+		event->tdi_receive_datagram.flags = ((TDI_REQUEST_KERNEL_RECEIVEDG *)context->parameters)->ReceiveFlags;
+		store_conninfor(&event->tdi_receive_datagram.request_addr,
+				((TDI_REQUEST_KERNEL_RECEIVEDG *)context->parameters)->ReceiveDatagramInformation);
+		store_conninfor(&event->tdi_receive_datagram.return_addr,
+				((TDI_REQUEST_KERNEL_RECEIVEDG *)context->parameters)->ReturnDatagramInformation);
+		if (mdl_address != NULL && event->tdi_receive_datagram.length > 0)
+			RtlCopyMemory(event->tdi_receive_datagram.data,
+					mdl_address,// + MmGetMdlByteOffset(irp->MdlAddress),
+					event->tdi_receive_datagram.length < MAX_IO_SIZE ?
+					event->tdi_receive_datagram.length : MAX_IO_SIZE);
 		break;
 	}
 	case TDI_SEND: {
 		char *mdl_address = MmGetSystemAddressForMdlSafe(irp->MdlAddress, NormalPagePriority);
-		if ((event = event_buffer_start_add()) != NULL) {
-			event->pid = context->pid;
-			event->tid = context->tid;
-			event->type = ET_TDI_SEND;
-			event->status = irp->IoStatus.Status;
-			event->path_length = 0;
-			event->path[0] = 0;
-			event->tdi_send.file_object = context->file_object;
-			event->tdi_send.length = ((TDI_REQUEST_KERNEL_SEND *)context->parameters)->SendLength;
-			event->tdi_send.flags = ((TDI_REQUEST_KERNEL_SEND *)context->parameters)->SendFlags;
-			if (mdl_address != NULL && event->tdi_send.length > 0)
-				RtlCopyMemory(event->tdi_send.data,
-						mdl_address,// + MmGetMdlByteOffset(irp->MdlAddress),
-						event->tdi_send.length < MAX_IO_SIZE ?
-						event->tdi_send.length : MAX_IO_SIZE);
-			event_buffer_finish_add(event);
-		}
+		event->type = ET_TDI_SEND;
+		event->tdi_send.file_object = context->file_object;
+		event->tdi_send.length = ((TDI_REQUEST_KERNEL_SEND *)context->parameters)->SendLength;
+		event->tdi_send.flags = ((TDI_REQUEST_KERNEL_SEND *)context->parameters)->SendFlags;
+		if (mdl_address != NULL && event->tdi_send.length > 0)
+			RtlCopyMemory(event->tdi_send.data,
+					mdl_address,// + MmGetMdlByteOffset(irp->MdlAddress),
+					event->tdi_send.length < MAX_IO_SIZE ?
+					event->tdi_send.length : MAX_IO_SIZE);
 		break;
 	}
 	case TDI_SEND_DATAGRAM: {
 		char *mdl_address = MmGetSystemAddressForMdlSafe(irp->MdlAddress, NormalPagePriority);
-		if ((event = event_buffer_start_add()) != NULL) {
-			event->pid = context->pid;
-			event->tid = context->tid;
-			event->type = ET_TDI_SEND_DATAGRAM;
-			event->status = irp->IoStatus.Status;
-			event->path_length = 0;
-			event->path[0] = 0;
-			event->tdi_send_datagram.file_object = context->file_object;
-			event->tdi_send_datagram.length = ((TDI_REQUEST_KERNEL_SENDDG *)context->parameters)->SendLength;
-			store_conninfor(&event->tdi_send_datagram.addr,
-					((TDI_REQUEST_KERNEL_SENDDG *)context->parameters)->SendDatagramInformation);
-			if (mdl_address != NULL && event->tdi_send_datagram.length > 0)
-				RtlCopyMemory(event->tdi_send_datagram.data,
-						mdl_address,// + MmGetMdlByteOffset(irp->MdlAddress),
-						event->tdi_send_datagram.length < MAX_IO_SIZE ?
-						event->tdi_send_datagram.length : MAX_IO_SIZE);
-			event_buffer_finish_add(event);
-		}
+		event->type = ET_TDI_SEND_DATAGRAM;
+		event->tdi_send_datagram.file_object = context->file_object;
+		event->tdi_send_datagram.length = ((TDI_REQUEST_KERNEL_SENDDG *)context->parameters)->SendLength;
+		store_conninfor(&event->tdi_send_datagram.addr,
+				((TDI_REQUEST_KERNEL_SENDDG *)context->parameters)->SendDatagramInformation);
+		if (mdl_address != NULL && event->tdi_send_datagram.length > 0)
+			RtlCopyMemory(event->tdi_send_datagram.data,
+					mdl_address,// + MmGetMdlByteOffset(irp->MdlAddress),
+					event->tdi_send_datagram.length < MAX_IO_SIZE ?
+					event->tdi_send_datagram.length : MAX_IO_SIZE);
 		break;
 	}
 	case TDI_SET_EVENT_HANDLER:
-		if ((event = event_buffer_start_add()) != NULL) {
-			event->pid = context->pid;
-			event->tid = context->tid;
-			event->type = ET_TDI_SET_EVENT_HANDLER;
-			event->status = irp->IoStatus.Status;
-			event->path_length = 0;
-			event->path[0] = 0;
-			event->tdi_set_event_handler.file_object = context->file_object;
-			event->tdi_set_event_handler.type = ((TDI_REQUEST_KERNEL_SET_EVENT *)context->parameters)->EventType;
-			event->tdi_set_event_handler.handler = ((TDI_REQUEST_KERNEL_SET_EVENT *)context->parameters)->EventHandler;
-			event->tdi_set_event_handler.context = ((TDI_REQUEST_KERNEL_SET_EVENT *)context->parameters)->EventContext;
-			event_buffer_finish_add(event);
-		}
+		event->type = ET_TDI_SET_EVENT_HANDLER;
+		event->tdi_set_event_handler.file_object = context->file_object;
+		event->tdi_set_event_handler.type = ((TDI_REQUEST_KERNEL_SET_EVENT *)context->parameters)->EventType;
+		event->tdi_set_event_handler.handler = ((TDI_REQUEST_KERNEL_SET_EVENT *)context->parameters)->EventHandler;
+		event->tdi_set_event_handler.context = ((TDI_REQUEST_KERNEL_SET_EVENT *)context->parameters)->EventContext;
 		break;
 	case TDI_SET_INFORMATION: {
 		TDI_REQUEST_KERNEL_SET_INFORMATION *info = (TDI_REQUEST_KERNEL_SET_INFORMATION *)context->parameters;
 		char *mdl_address = MmGetSystemAddressForMdlSafe(irp->MdlAddress, NormalPagePriority);
-		if ((event = event_buffer_start_add()) != NULL) {
-			event->pid = context->pid;
-			event->tid = context->tid;
-			event->type = ET_TDI_SET_INFORMATION;
-			event->status = irp->IoStatus.Status;
-			event->path_length = 0;
-			event->path[0] = 0;
-			event->tdi_query_information.file_object = context->file_object;
-			event->tdi_query_information.type = info->SetType;
-			store_conninfor(&event->tdi_query_information.addr, info->RequestConnectionInformation);
-			if (mdl_address != NULL) {
-				switch (event->tdi_query_information.type) {
-				case TDI_QUERY_ADDRESS_INFO:
-					event->tdi_query_information.address.activity_count =
-						((TDI_ADDRESS_INFO *)mdl_address)->ActivityCount;
-					store_trans_addr(&event->tdi_query_information.address.addr,
-							&((TDI_ADDRESS_INFO *)mdl_address)->Address);
-					break;
-				case TDI_QUERY_CONNECTION_INFO:
-					RtlCopyMemory(&event->tdi_query_information.connection,
-							mdl_address, sizeof(TDI_CONNECTION_INFO));
-					break;
-				}
+		event->type = ET_TDI_SET_INFORMATION;
+		event->tdi_query_information.file_object = context->file_object;
+		event->tdi_query_information.type = info->SetType;
+		store_conninfor(&event->tdi_query_information.addr, info->RequestConnectionInformation);
+		if (mdl_address != NULL) {
+			switch (event->tdi_query_information.type) {
+			case TDI_QUERY_ADDRESS_INFO:
+				event->tdi_query_information.address.activity_count =
+					((TDI_ADDRESS_INFO *)mdl_address)->ActivityCount;
+				store_trans_addr(&event->tdi_query_information.address.addr,
+						&((TDI_ADDRESS_INFO *)mdl_address)->Address);
+				break;
+			case TDI_QUERY_CONNECTION_INFO:
+				RtlCopyMemory(&event->tdi_query_information.connection,
+						mdl_address, sizeof(TDI_CONNECTION_INFO));
+				break;
 			}
-			// TODO: else?
-			event_buffer_finish_add(event);
 		}
+		// TODO: else?
 		break;
 	}
 	default:
+		event_buffer_cancel_add(event);
 		DbgPrint("tdimon %d:%d f=0x%x ->0x%x\n",
 				context->minor_function,
 				context->file_object,
 				irp->IoStatus.Status);
+		goto out;
 	}
+
+	event_buffer_finish_add(event);
 
 out:
 	if ((NT_SUCCESS(irp->IoStatus.Status) && (context->orig_control & SL_INVOKE_ON_SUCCESS)) ||
@@ -993,6 +974,7 @@ static NTSTATUS tdimon_mj_idc (DEVICE_OBJECT *device_object, IRP *irp)
 	context->orig_cr = irp_sp->CompletionRoutine;
 	context->orig_context = irp_sp->Context;
 	context->orig_control = irp_sp->Control;
+	context->time_pre = get_timestamp();
 	context->pid = (unsigned long)PsGetCurrentProcessId();
 	context->tid = (unsigned long)PsGetCurrentThreadId();
 	irp_sp->CompletionRoutine = tdimon_idc_cr;
@@ -1044,6 +1026,7 @@ static NTSTATUS tdimon_mj_cleanup (DEVICE_OBJECT *device_object, IRP *irp)
 	struct foht_entry *entry;
 	NTSTATUS status;
 	struct event *event;
+	LARGE_INTEGER time_pre, time_post;
 
 	foht_lock();
 	entry = foht_get(file_object);
@@ -1053,7 +1036,9 @@ static NTSTATUS tdimon_mj_cleanup (DEVICE_OBJECT *device_object, IRP *irp)
 	if (entry != NULL)
 		foht_free(entry);
 
+	time_pre = get_timestamp();
 	status = orig_mj_cleanup(device_object, irp);
+	time_post = get_timestamp();
 
 	if (ESCAPE_CONDITION)
 		return status;
@@ -1061,6 +1046,8 @@ static NTSTATUS tdimon_mj_cleanup (DEVICE_OBJECT *device_object, IRP *irp)
 	if ((event = event_buffer_start_add()) != NULL) {
 		event->type = ET_TDI_CLEANUP;
 		event->status = status;
+		event->time_pre = time_pre;
+		event->time_post = time_post;
 		event->path_length = 0;
 		event->path[0] = 0;
 		event->tdi_general.file_object = file_object;
@@ -1076,8 +1063,11 @@ static NTSTATUS tdimon_mj_close (DEVICE_OBJECT *device_object, IRP *irp)
 	FILE_OBJECT *file_object = IoGetCurrentIrpStackLocation(irp)->FileObject;
 	NTSTATUS status;
 	struct event *event;
+	LARGE_INTEGER time_pre, time_post;
 
+	time_pre = get_timestamp();
 	status = orig_mj_close(device_object, irp);
+	time_post = get_timestamp();
 
 	if (ESCAPE_CONDITION)
 		return status;
@@ -1085,6 +1075,8 @@ static NTSTATUS tdimon_mj_close (DEVICE_OBJECT *device_object, IRP *irp)
 	if ((event = event_buffer_start_add()) != NULL) {
 		event->type = ET_TDI_CLOSE;
 		event->status = status;
+		event->time_pre = time_pre;
+		event->time_post = time_post;
 		event->path_length = 0;
 		event->path[0] = 0;
 		event->tdi_general.file_object = file_object;
@@ -1104,6 +1096,7 @@ static NTSTATUS tdimon_mj_create (DEVICE_OBJECT *device_object, IRP *irp)
 	FILE_OBJECT *file_object = irp_sp->FileObject;
 	int type;
 	struct tdi_transport_address addr;
+	LARGE_INTEGER time_pre, time_post;
 
 	if (ESCAPE_CONDITION)
 		return orig_mj_create(device_object, irp);
@@ -1120,11 +1113,15 @@ static NTSTATUS tdimon_mj_create (DEVICE_OBJECT *device_object, IRP *irp)
 		type = 3;
 	}
 
+	time_pre = get_timestamp();
 	status = orig_mj_create(device_object, irp);
+	time_post = get_timestamp();
 
 	if ((event = event_buffer_start_add()) != NULL) {
 		event->type = ET_TDI_CREATE;
 		event->status = status;
+		event->time_pre = time_pre;
+		event->time_post = time_post;
 		event->path_length = 0;
 		event->path[0] = 0;
 		event->tdi_create.file_object = file_object;

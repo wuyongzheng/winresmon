@@ -91,7 +91,6 @@ void event_buffer_finish_add (struct event *event)
 	event->next = -1;
 
 	KeAcquireInStackQueuedSpinLock(&event_buffer_lock, &lock_handle);
-	KeQuerySystemTime(&event->time);
 	event->serial = ++ event_buffer->serial;
 	if (event_buffer->written_count == 0) {
 		event_buffer->written_head = event_buffer->written_tail = event_i;

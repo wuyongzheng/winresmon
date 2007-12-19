@@ -49,8 +49,13 @@ static const int num_Close = 25;
 static NTSTATUS (*stock_Close) (HANDLE Handle);
 static NTSTATUS resmon_Close   (HANDLE Handle)
 {
-	NTSTATUS retval = (*stock_Close)(Handle);
+	NTSTATUS retval;
 	struct htable_entry *ht_entry;
+	LARGE_INTEGER time_pre, time_post;
+
+	time_pre = get_timestamp();
+	retval = (*stock_Close)(Handle);
+	time_post = get_timestamp();
 
 	if ((unsigned long)PsGetCurrentProcessId() <= 4 || (unsigned long)PsGetCurrentProcessId() == daemon_pid)
 		return retval;
@@ -61,6 +66,8 @@ static NTSTATUS resmon_Close   (HANDLE Handle)
 		if (event != NULL) {
 			event->type = ET_REG_CLOSE;
 			event->status = retval;
+			event->time_pre = time_pre;
+			event->time_post = time_post;
 			event->reg_close.handle = Handle;
 			event->path_length = MAX_PATH_SIZE - 1 < ht_entry->name_length ? MAX_PATH_SIZE - 1 : ht_entry->name_length;
 			RtlCopyMemory(event->path, ht_entry->name, event->path_length * 2 + 2);
@@ -78,8 +85,11 @@ static NTSTATUS (*stock_CreateKey) (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess
 static NTSTATUS resmon_CreateKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes, ULONG TitleIndex, PUNICODE_STRING Class OPTIONAL, ULONG CreateOptions, PULONG Disposition OPTIONAL)
 {
 	NTSTATUS retval;
+	LARGE_INTEGER time_pre, time_post;
 
+	time_pre = get_timestamp();
 	retval = (*stock_CreateKey)(KeyHandle, DesiredAccess, ObjectAttributes, TitleIndex, Class, CreateOptions, Disposition);
+	time_post = get_timestamp();
 
 	if ((unsigned long)PsGetCurrentProcessId() <= 4 || (unsigned long)PsGetCurrentProcessId() == daemon_pid)
 		return retval;
@@ -90,6 +100,8 @@ static NTSTATUS resmon_CreateKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess
 		if (event != NULL) {
 			event->type = ET_REG_CREATE;
 			event->status = retval;
+			event->time_pre = time_pre;
+			event->time_post = time_post;
 			event->reg_create.handle = *KeyHandle;
 			event->reg_create.desired_access = DesiredAccess;
 			event->reg_create.create_options = CreateOptions;
@@ -165,6 +177,8 @@ static NTSTATUS resmon_CreateKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess
 			if (event != NULL) {
 				event->type = ET_REG_CREATE;
 				event->status = retval;
+				event->time_pre = time_pre;
+				event->time_post = time_post;
 				event->reg_create.handle = *KeyHandle;
 				event->reg_create.desired_access = DesiredAccess;
 				event->reg_create.create_options = CreateOptions;
@@ -217,8 +231,11 @@ static NTSTATUS resmon_DeleteKey   (HANDLE KeyHandle)
 	NTSTATUS retval;
 	struct htable_entry *hentry;
 	struct event *event;
+	LARGE_INTEGER time_pre, time_post;
 
+	time_pre = get_timestamp();
 	retval = (*stock_DeleteKey)(KeyHandle);
+	time_post = get_timestamp();
 
 	if ((unsigned long)PsGetCurrentProcessId() <= 4 || (unsigned long)PsGetCurrentProcessId() == daemon_pid)
 		return retval;
@@ -231,6 +248,8 @@ static NTSTATUS resmon_DeleteKey   (HANDLE KeyHandle)
 	if (event != NULL) {
 		event->type = ET_REG_DELETE;
 		event->status = retval;
+		event->time_pre = time_pre;
+		event->time_post = time_post;
 		event->reg_delete.handle = KeyHandle;
 		event->path_length = hentry->name_length;
 		RtlCopyMemory(event->path, hentry->name, hentry->name_length * 2 + 2);
@@ -247,8 +266,11 @@ static NTSTATUS resmon_DeleteValueKey   (HANDLE KeyHandle, PUNICODE_STRING Value
 {
 	NTSTATUS retval;
 	struct htable_entry *parent_entry;
+	LARGE_INTEGER time_pre, time_post;
 
+	time_pre = get_timestamp();
 	retval = (*stock_DeleteValueKey)(KeyHandle, ValueName);
+	time_post = get_timestamp();
 
 	if ((unsigned long)PsGetCurrentProcessId() <= 4 || (unsigned long)PsGetCurrentProcessId() == daemon_pid)
 		return retval;
@@ -294,6 +316,8 @@ static NTSTATUS resmon_DeleteValueKey   (HANDLE KeyHandle, PUNICODE_STRING Value
 		if (event != NULL) {
 			event->type = ET_REG_DELETEVALUE;
 			event->status = retval;
+			event->time_pre = time_pre;
+			event->time_post = time_post;
 			event->reg_delete_value.handle = KeyHandle;
 			event->path_length = parent_entry->name_length + 1 + ValueName->Length / 2;
 			if (event->path_length >= MAX_PATH_SIZE)
@@ -332,8 +356,11 @@ static NTSTATUS (*stock_OpenKey) (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, 
 static NTSTATUS resmon_OpenKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, POBJECT_ATTRIBUTES ObjectAttributes)
 {
 	NTSTATUS retval;
+	LARGE_INTEGER time_pre, time_post;
 
+	time_pre = get_timestamp();
 	retval = (*stock_OpenKey)(KeyHandle, DesiredAccess, ObjectAttributes);
+	time_post = get_timestamp();
 
 	if ((unsigned long)PsGetCurrentProcessId() <= 4 || (unsigned long)PsGetCurrentProcessId() == daemon_pid)
 		return retval;
@@ -344,6 +371,8 @@ static NTSTATUS resmon_OpenKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, 
 		if (event != NULL) {
 			event->type = ET_REG_OPEN;
 			event->status = retval;
+			event->time_pre = time_pre;
+			event->time_post = time_post;
 			event->reg_open.handle = *KeyHandle;
 			event->reg_open.desired_access = DesiredAccess;
 			event->path_length = MAX_PATH_SIZE - 1 < ObjectAttributes->ObjectName->Length / 2 ?
@@ -418,6 +447,8 @@ static NTSTATUS resmon_OpenKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, 
 			if (event != NULL) {
 				event->type = ET_REG_OPEN;
 				event->status = retval;
+				event->time_pre = time_pre;
+				event->time_post = time_post;
 				event->reg_open.handle = *KeyHandle;
 				event->reg_open.desired_access = DesiredAccess;
 				event->path_length = length;
@@ -469,8 +500,11 @@ static NTSTATUS resmon_QueryValueKey   (HANDLE KeyHandle, PUNICODE_STRING ValueN
 {
 	NTSTATUS retval;
 	struct htable_entry *parent_entry;
+	LARGE_INTEGER time_pre, time_post;
 
+	time_pre = get_timestamp();
 	retval = (*stock_QueryValueKey)(KeyHandle, ValueName, KeyValueInformationClass, KeyValueInformation, Length, ResultLength);
+	time_post = get_timestamp();
 
 	if ((unsigned long)PsGetCurrentProcessId() <= 4 || (unsigned long)PsGetCurrentProcessId() == daemon_pid)
 		return retval;
@@ -516,6 +550,8 @@ static NTSTATUS resmon_QueryValueKey   (HANDLE KeyHandle, PUNICODE_STRING ValueN
 		if (event != NULL) {
 			event->type = ET_REG_QUERYVALUE;
 			event->status = retval;
+			event->time_pre = time_pre;
+			event->time_post = time_post;
 			event->reg_rw.handle = KeyHandle;
 			if (retval == STATUS_SUCCESS) {
 				switch (KeyValueInformationClass) {
@@ -578,8 +614,11 @@ static NTSTATUS resmon_SetValueKey   (HANDLE KeyHandle, PUNICODE_STRING ValueNam
 {
 	NTSTATUS retval;
 	struct htable_entry *parent_entry;
+	LARGE_INTEGER time_pre, time_post;
 
+	time_pre = get_timestamp();
 	retval = (*stock_SetValueKey)(KeyHandle, ValueName, TitleIndex, Type, Data, DataSize);
+	time_post = get_timestamp();
 
 	if ((unsigned long)PsGetCurrentProcessId() <= 4 || (unsigned long)PsGetCurrentProcessId() == daemon_pid)
 		return retval;
@@ -625,6 +664,8 @@ static NTSTATUS resmon_SetValueKey   (HANDLE KeyHandle, PUNICODE_STRING ValueNam
 		if (event != NULL) {
 			event->type = ET_REG_SETVALUE;
 			event->status = retval;
+			event->time_pre = time_pre;
+			event->time_post = time_post;
 			event->reg_rw.handle = KeyHandle;
 			event->reg_rw.value_type = Type;
 			event->reg_rw.value_length = MAX_IO_SIZE - 1 < DataSize ? MAX_IO_SIZE - 1 : DataSize;

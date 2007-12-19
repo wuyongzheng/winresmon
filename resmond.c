@@ -332,9 +332,9 @@ static void process_event (const struct event *event)
 		sprintf_s(proc->name, sizeof(proc->name), "%S", event->path);
 	}
 
-	out_fprintf(out_file, "%u" FIELD_SEP "%I64u" FIELD_SEP "%d" FIELD_SEP "%d" FIELD_SEP
+	out_fprintf(out_file, "%u" FIELD_SEP "%I64u" FIELD_SEP "%I64u" FIELD_SEP "%d" FIELD_SEP "%d" FIELD_SEP
 			"%s" FIELD_SEP "%s" FIELD_SEP "%s" FIELD_SEP,
-			event->serial, event->time.QuadPart, event->pid, event->tid,
+			event->serial, event->time_pre.QuadPart, event->time_post.QuadPart, event->pid, event->tid,
 			proc->name, proc->owner, get_ntstatus_name(event->status));
 
 	switch (event->type) {

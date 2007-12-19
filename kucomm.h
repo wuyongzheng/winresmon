@@ -102,7 +102,8 @@ struct tdi_transport_address {
 
 struct event {
 	int next;
-	LARGE_INTEGER time; // from KeQuerySystemTime
+	LARGE_INTEGER time_pre;
+	LARGE_INTEGER time_post;
 	unsigned int serial;
 	unsigned long pid;
 	unsigned long tid;
