@@ -123,6 +123,7 @@ struct event {
 			unsigned long attributes; // e.g. FILE_ATTRIBUTE_HIDDEN
 			unsigned long creation_disposition; // e.g. FILE_OPEN_IF
 			unsigned long create_options; // e.g. FILE_DIRECTORY_FILE
+			unsigned long status_information; // (IoStatusBlock->Information) e.g. FILE_CREATED
 		} file_create;
 		// http://msdn2.microsoft.com/en-us/library/ms795902.aspx
 		struct {

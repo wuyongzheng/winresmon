@@ -72,6 +72,7 @@ static FLT_POSTOP_CALLBACK_STATUS on_post_op (PFLT_CALLBACK_DATA data, PCFLT_REL
 		event->file_create.attributes           = data->Iopb->Parameters.Create.FileAttributes;
 		event->file_create.creation_disposition = data->Iopb->Parameters.Create.Options >> 24;
 		event->file_create.create_options       = data->Iopb->Parameters.Create.Options & 0x00ffffff;
+		event->file_create.status_information   = data->IoStatus.Information;
 		break;
 	case IRP_MJ_READ:
 		event->type = ET_FILE_READ;

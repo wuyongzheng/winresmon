@@ -341,13 +341,14 @@ static void process_event (const struct event *event)
 	case ET_FILE_CREATE:
 		out_fprintf(out_file, "file_create" FIELD_SEP "%S" FIELD_SEP
 				"access=0x%x" PARAM_SEP "share=0x%x" PARAM_SEP "attr=0x%x" PARAM_SEP
-				"cd=0x%x" PARAM_SEP "co=0x%x",
+				"cd=0x%x" PARAM_SEP "co=0x%x" PARAM_SEP "si=0x%x",
 				event->path,
 				event->file_create.desired_access,
 				event->file_create.share_mode,
 				event->file_create.attributes,
 				event->file_create.creation_disposition,
-				event->file_create.create_options);
+				event->file_create.create_options,
+				event->file_create.status_information);
 		break;
 	case ET_FILE_CLOSE:
 		out_fprintf(out_file, "file_close" FIELD_SEP "%S" FIELD_SEP "", event->path);
