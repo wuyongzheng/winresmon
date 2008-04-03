@@ -45,6 +45,10 @@ typedef struct _KSERVICE_TABLE_DESCRIPTOR {
 } KSERVICE_TABLE_DESCRIPTOR, *PKSERVICE_TABLE_DESCRIPTOR;
 extern PKSERVICE_TABLE_DESCRIPTOR KeServiceDescriptorTable;
 
+#define ESCAPE_CONDITION KeGetCurrentIrql() != PASSIVE_LEVEL || \
+				(unsigned long)PsGetCurrentProcessId() <= 4 || \
+				(unsigned long)PsGetCurrentProcessId() == daemon_pid
+
 static const int num_Close = 25;
 static NTSTATUS (*stock_Close) (HANDLE Handle);
 static NTSTATUS resmon_Close   (HANDLE Handle)
@@ -53,12 +57,12 @@ static NTSTATUS resmon_Close   (HANDLE Handle)
 	struct htable_entry *ht_entry;
 	LARGE_INTEGER time_pre, time_post;
 
+	if (ESCAPE_CONDITION)
+		return (*stock_Close)(Handle);
+
 	time_pre = get_timestamp();
 	retval = (*stock_Close)(Handle);
 	time_post = get_timestamp();
-
-	if ((unsigned long)PsGetCurrentProcessId() <= 4 || (unsigned long)PsGetCurrentProcessId() == daemon_pid)
-		return retval;
 
 	ht_entry = htable_get_entry((unsigned long)PsGetCurrentProcessId(), Handle);
 	if (ht_entry != NULL) {
@@ -87,12 +91,12 @@ static NTSTATUS resmon_CreateKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess
 	NTSTATUS retval;
 	LARGE_INTEGER time_pre, time_post;
 
+	if (ESCAPE_CONDITION)
+		return (*stock_CreateKey)(KeyHandle, DesiredAccess, ObjectAttributes, TitleIndex, Class, CreateOptions, Disposition);
+
 	time_pre = get_timestamp();
 	retval = (*stock_CreateKey)(KeyHandle, DesiredAccess, ObjectAttributes, TitleIndex, Class, CreateOptions, Disposition);
 	time_post = get_timestamp();
-
-	if ((unsigned long)PsGetCurrentProcessId() <= 4 || (unsigned long)PsGetCurrentProcessId() == daemon_pid)
-		return retval;
 
 	if (ObjectAttributes->RootDirectory == NULL) {
 		struct event *event = event_buffer_start_add();
@@ -233,12 +237,12 @@ static NTSTATUS resmon_DeleteKey   (HANDLE KeyHandle)
 	struct event *event;
 	LARGE_INTEGER time_pre, time_post;
 
+	if (ESCAPE_CONDITION)
+		return (*stock_DeleteKey)(KeyHandle);
+
 	time_pre = get_timestamp();
 	retval = (*stock_DeleteKey)(KeyHandle);
 	time_post = get_timestamp();
-
-	if ((unsigned long)PsGetCurrentProcessId() <= 4 || (unsigned long)PsGetCurrentProcessId() == daemon_pid)
-		return retval;
 
 	hentry = htable_get_entry((unsigned long)PsGetCurrentProcessId(), KeyHandle);
 	if (hentry == NULL)
@@ -268,12 +272,12 @@ static NTSTATUS resmon_DeleteValueKey   (HANDLE KeyHandle, PUNICODE_STRING Value
 	struct htable_entry *parent_entry;
 	LARGE_INTEGER time_pre, time_post;
 
+	if (ESCAPE_CONDITION)
+		return (*stock_DeleteValueKey)(KeyHandle, ValueName);
+
 	time_pre = get_timestamp();
 	retval = (*stock_DeleteValueKey)(KeyHandle, ValueName);
 	time_post = get_timestamp();
-
-	if ((unsigned long)PsGetCurrentProcessId() <= 4 || (unsigned long)PsGetCurrentProcessId() == daemon_pid)
-		return retval;
 
 	parent_entry = htable_get_entry((unsigned long)PsGetCurrentProcessId(), KeyHandle);
 	if (parent_entry == NULL) {
@@ -358,12 +362,12 @@ static NTSTATUS resmon_OpenKey   (PHANDLE KeyHandle, ACCESS_MASK DesiredAccess, 
 	NTSTATUS retval;
 	LARGE_INTEGER time_pre, time_post;
 
+	if (ESCAPE_CONDITION)
+		return (*stock_OpenKey)(KeyHandle, DesiredAccess, ObjectAttributes);
+
 	time_pre = get_timestamp();
 	retval = (*stock_OpenKey)(KeyHandle, DesiredAccess, ObjectAttributes);
 	time_post = get_timestamp();
-
-	if ((unsigned long)PsGetCurrentProcessId() <= 4 || (unsigned long)PsGetCurrentProcessId() == daemon_pid)
-		return retval;
 
 	if (ObjectAttributes->RootDirectory == NULL) {
 		struct event *event = event_buffer_start_add();
@@ -502,12 +506,12 @@ static NTSTATUS resmon_QueryValueKey   (HANDLE KeyHandle, PUNICODE_STRING ValueN
 	struct htable_entry *parent_entry;
 	LARGE_INTEGER time_pre, time_post;
 
+	if (ESCAPE_CONDITION)
+		return (*stock_QueryValueKey)(KeyHandle, ValueName, KeyValueInformationClass, KeyValueInformation, Length, ResultLength);
+
 	time_pre = get_timestamp();
 	retval = (*stock_QueryValueKey)(KeyHandle, ValueName, KeyValueInformationClass, KeyValueInformation, Length, ResultLength);
 	time_post = get_timestamp();
-
-	if ((unsigned long)PsGetCurrentProcessId() <= 4 || (unsigned long)PsGetCurrentProcessId() == daemon_pid)
-		return retval;
 
 	parent_entry = htable_get_entry((unsigned long)PsGetCurrentProcessId(), KeyHandle);
 	if (parent_entry == NULL) {
@@ -616,12 +620,12 @@ static NTSTATUS resmon_SetValueKey   (HANDLE KeyHandle, PUNICODE_STRING ValueNam
 	struct htable_entry *parent_entry;
 	LARGE_INTEGER time_pre, time_post;
 
+	if (ESCAPE_CONDITION)
+		return (*stock_SetValueKey)(KeyHandle, ValueName, TitleIndex, Type, Data, DataSize);
+
 	time_pre = get_timestamp();
 	retval = (*stock_SetValueKey)(KeyHandle, ValueName, TitleIndex, Type, Data, DataSize);
 	time_post = get_timestamp();
-
-	if ((unsigned long)PsGetCurrentProcessId() <= 4 || (unsigned long)PsGetCurrentProcessId() == daemon_pid)
-		return retval;
 
 	parent_entry = htable_get_entry((unsigned long)PsGetCurrentProcessId(), KeyHandle);
 	if (parent_entry == NULL) {
