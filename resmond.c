@@ -431,7 +431,7 @@ static void process_event (const struct event *event)
 					"t=FileNameInformation" PARAM_SEP "name=\"%S\"",
 					event->path,
 					filter_wstring(event->file_info.info_data.file_info_name.file_name,
-						event->file_info.info_data.file_info_name.file_name_length));
+						event->file_info.info_data.file_info_name.file_name_length / 2));
 			break;
 		case FileNetworkOpenInformation:
 			out_fprintf(out_file, "file_queryinfo" FIELD_SEP "%S" FIELD_SEP
@@ -472,7 +472,7 @@ static void process_event (const struct event *event)
 					event->file_info.info_data.file_info_stream.next_entry_offset,
 					event->file_info.info_data.file_info_stream.stream_size,
 					event->file_info.info_data.file_info_stream.stream_allocation_size,
-					filter_wstring(event->file_info.info_data.file_info_stream.stream_name, event->file_info.info_data.file_info_stream.stream_name_length));
+					filter_wstring(event->file_info.info_data.file_info_stream.stream_name, event->file_info.info_data.file_info_stream.stream_name_length / 2));
 			break;
 		default:
 			out_fprintf(out_file, "file_queryinfo" FIELD_SEP "%S" FIELD_SEP "t=%d" PARAM_SEP "s=%d",
@@ -519,7 +519,7 @@ static void process_event (const struct event *event)
 					event->path,
 					event->file_info.info_data.file_info_link.replace_if_exists ? "true" : "false",
 					event->file_info.info_data.file_info_link.root_directory,
-					filter_wstring(event->file_info.info_data.file_info_link.file_name, event->file_info.info_data.file_info_link.file_name_length));
+					filter_wstring(event->file_info.info_data.file_info_link.file_name, event->file_info.info_data.file_info_link.file_name_length / 2));
 			break;
 		case FilePositionInformation:
 			out_fprintf(out_file, "file_setinfo" FIELD_SEP "%S" FIELD_SEP
@@ -534,7 +534,7 @@ static void process_event (const struct event *event)
 					event->path,
 					event->file_info.info_data.file_info_rename.replace_if_exists ? "true" : "false",
 					event->file_info.info_data.file_info_rename.root_directory,
-					filter_wstring(event->file_info.info_data.file_info_rename.file_name, event->file_info.info_data.file_info_rename.file_name_length));
+					filter_wstring(event->file_info.info_data.file_info_rename.file_name, event->file_info.info_data.file_info_rename.file_name_length / 2));
 			break;
 		case FileValidDataLengthInformation:
 			out_fprintf(out_file, "file_setinfo" FIELD_SEP "%S" FIELD_SEP

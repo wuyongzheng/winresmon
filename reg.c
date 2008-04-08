@@ -673,7 +673,11 @@ static NTSTATUS resmon_SetValueKey   (HANDLE KeyHandle, PUNICODE_STRING ValueNam
 			event->reg_rw.handle = KeyHandle;
 			event->reg_rw.value_type = Type;
 			event->reg_rw.value_length = MAX_IO_SIZE - 1 < DataSize ? MAX_IO_SIZE - 1 : DataSize;
-			RtlCopyMemory(event->reg_rw.value, Data, event->reg_rw.value_length);
+			try {
+				RtlCopyMemory(event->reg_rw.value, Data, event->reg_rw.value_length);
+			} except (EXCEPTION_EXECUTE_HANDLER) {
+				RtlZeroMemory(event->reg_rw.value, event->reg_rw.value_length);
+			}
 			event->reg_rw.value[event->reg_rw.value_length] = '\0';
 			event->path_length = parent_entry->name_length + 1 + ValueName->Length / 2;
 			if (event->path_length >= MAX_PATH_SIZE)
