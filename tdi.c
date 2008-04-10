@@ -955,7 +955,7 @@ out:
 	return status;
 }
 
-static DRIVER_DISPATCH *orig_mj_idc;
+static PDRIVER_DISPATCH orig_mj_idc;
 static NTSTATUS tdimon_mj_idc (DEVICE_OBJECT *device_object, IRP *irp)
 {
 	IO_STACK_LOCATION *irp_sp = IoGetCurrentIrpStackLocation(irp);
@@ -1019,7 +1019,7 @@ out:
 	return orig_mj_idc(device_object, irp);
 }
 
-static DRIVER_DISPATCH *orig_mj_cleanup;
+static PDRIVER_DISPATCH orig_mj_cleanup;
 static NTSTATUS tdimon_mj_cleanup (DEVICE_OBJECT *device_object, IRP *irp)
 {
 	FILE_OBJECT *file_object = IoGetCurrentIrpStackLocation(irp)->FileObject;
@@ -1057,7 +1057,7 @@ static NTSTATUS tdimon_mj_cleanup (DEVICE_OBJECT *device_object, IRP *irp)
 	return status;
 }
 
-static DRIVER_DISPATCH *orig_mj_close;
+static PDRIVER_DISPATCH orig_mj_close;
 static NTSTATUS tdimon_mj_close (DEVICE_OBJECT *device_object, IRP *irp)
 {
 	FILE_OBJECT *file_object = IoGetCurrentIrpStackLocation(irp)->FileObject;
@@ -1086,7 +1086,7 @@ static NTSTATUS tdimon_mj_close (DEVICE_OBJECT *device_object, IRP *irp)
 	return status;
 }
 
-static DRIVER_DISPATCH *orig_mj_create;
+static PDRIVER_DISPATCH orig_mj_create;
 static NTSTATUS tdimon_mj_create (DEVICE_OBJECT *device_object, IRP *irp)
 {
 	IO_STACK_LOCATION *irp_sp = IoGetCurrentIrpStackLocation(irp);

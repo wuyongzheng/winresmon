@@ -253,34 +253,27 @@ static const char *print_binary (const unsigned char *data, int length)
 	return buff;
 }
 
-static const short *filter_wstring (const short *str, int length)
+/* length is in characters */
+static const unsigned short *filter_wstring (const unsigned short *str, int length)
 {
-	static short buff[MAX_PATH_SIZE];
+	static unsigned short buff[MAX_PATH_SIZE];
 	int i;
 
 	if (length > MAX_PATH_SIZE - 1)
 		length = MAX_PATH_SIZE - 1;
 
-	for (i = 0; i < length; i ++)
-		if (str[i] == L'\r' || str[i] == L'\n' || str[i] == L'\t' || str[i] == L'\"')
-			break;
-
-	if (i == length) {
-		if (str[length] == L'\0') {
-			return str;
-		} else {
-			memcpy(buff, str, length);
-			buff[length] = L'\0';
+	for (i = 0; i < length; i ++) {
+		unsigned int c = str[i];
+		if (c == 0) {
+			buff[i] = 0;
+			return buff;
 		}
-	} else {
-		for (i = 0; i < length; i ++) {
-			if (str[i] == L'\r' || str[i] == L'\n' || str[i] == L'\t' || str[i] == L'\"')
-				buff[i] = L' ';
-			else
-				buff[i] = str[i];
-		}
-		buff[length] = L'\0';
+		if (c < 0x20)
+			buff[i] = ' ';
+		else
+			buff[i] = (unsigned short)c;
 	}
+	buff[length] = 0;
 
 	return buff;
 }
