@@ -21,7 +21,7 @@ struct htable_entry {
 	unsigned long pid;
 	HANDLE handle;
 	int name_length;
-	short name [MAX_PATH_SIZE];
+	unsigned short name [MAX_PATH_SIZE]; // always '\0' terminated
 };
 
 extern DRIVER_OBJECT *driver_object;

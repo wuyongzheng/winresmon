@@ -550,7 +550,7 @@ static void process_event (const struct event *event)
 		break;
 	case ET_REG_CREATE:
 		out_fprintf(out_file, "reg_create" FIELD_SEP "%S" FIELD_SEP
-				"hd=0x%x" PARAM_SEP "da=0x%x" PARAM_SEP "co=0x%x" PARAM_SEP "cd=0x%x",
+				"handle=0x%x" PARAM_SEP "da=0x%x" PARAM_SEP "co=0x%x" PARAM_SEP "cd=0x%x",
 				event->path,
 				event->reg_create.handle,
 				event->reg_create.desired_access,
@@ -563,9 +563,10 @@ static void process_event (const struct event *event)
 				event->reg_delete.handle);
 		break;
 	case ET_REG_DELETEVALUE:
-		out_fprintf(out_file, "reg_deletevalue" FIELD_SEP "%S" FIELD_SEP "handle=0x%x",
+		out_fprintf(out_file, "reg_deletevalue" FIELD_SEP "%S" FIELD_SEP "handle=0x%x" PARAM_SEP "name=\"%S\"",
 				event->path,
-				event->reg_delete_value.handle);
+				event->reg_delete_value.handle,
+				filter_wstring(event->reg_delete_value.name, sizeof(event->reg_rw.name) / sizeof(short)));
 		break;
 	case ET_REG_OPEN:
 		out_fprintf(out_file, "reg_open" FIELD_SEP "%S" FIELD_SEP "handle=0x%x" PARAM_SEP "access=0x%x",
@@ -577,33 +578,48 @@ static void process_event (const struct event *event)
 	case ET_REG_SETVALUE:
 		switch (event->reg_rw.value_type) {
 		case REG_BINARY:
-			out_fprintf(out_file, "reg_%svalue" FIELD_SEP "%S" FIELD_SEP "t=REG_BINARY" PARAM_SEP "l=%d",
+			out_fprintf(out_file, "reg_%svalue" FIELD_SEP "%S" FIELD_SEP
+					"handle=0x%x" PARAM_SEP "name=\"%S\"" PARAM_SEP "t=REG_BINARY" PARAM_SEP "l=%d",
 					event->type == ET_REG_QUERYVALUE ? "query" : "set",
 					event->path,
+					event->reg_rw.handle,
+					filter_wstring(event->reg_rw.name, sizeof(event->reg_rw.name) / sizeof(short)),
 					event->reg_rw.value_length);
 			break;
 		case REG_DWORD:
-			out_fprintf(out_file, "reg_%svalue" FIELD_SEP "%S" FIELD_SEP "t=REG_DWORD" PARAM_SEP "v=0x%x",
+			out_fprintf(out_file, "reg_%svalue" FIELD_SEP "%S" FIELD_SEP
+					"handle=0x%x" PARAM_SEP "name=\"%S\"" PARAM_SEP "t=REG_DWORD" PARAM_SEP "v=0x%x",
 					event->type == ET_REG_QUERYVALUE ? "query" : "set",
 					event->path,
+					event->reg_rw.handle,
+					filter_wstring(event->reg_rw.name, sizeof(event->reg_rw.name) / sizeof(short)),
 					*(unsigned int *)event->reg_rw.value);
 			break;
 		case REG_EXPAND_SZ:
-			out_fprintf(out_file, "reg_%svalue" FIELD_SEP "%S" FIELD_SEP "t=REG_EXPAND_SZ" PARAM_SEP "v=\"%S\"",
+			out_fprintf(out_file, "reg_%svalue" FIELD_SEP "%S" FIELD_SEP
+					"handle=0x%x" PARAM_SEP "name=\"%S\"" PARAM_SEP "t=REG_EXPAND_SZ" PARAM_SEP "v=\"%S\"",
 					event->type == ET_REG_QUERYVALUE ? "query" : "set",
 					event->path,
+					event->reg_rw.handle,
+					filter_wstring(event->reg_rw.name, sizeof(event->reg_rw.name) / sizeof(short)),
 					filter_wstring((const short *)event->reg_rw.value, event->reg_rw.value_length / 2));
 			break;
 		case REG_SZ:
-			out_fprintf(out_file, "reg_%svalue" FIELD_SEP "%S" FIELD_SEP "t=REG_SZ" PARAM_SEP "v=\"%S\"",
+			out_fprintf(out_file, "reg_%svalue" FIELD_SEP "%S" FIELD_SEP
+					"handle=0x%x" PARAM_SEP "name=\"%S\"" PARAM_SEP "t=REG_SZ" PARAM_SEP "v=\"%S\"",
 					event->type == ET_REG_QUERYVALUE ? "query" : "set",
 					event->path,
+					event->reg_rw.handle,
+					filter_wstring(event->reg_rw.name, sizeof(event->reg_rw.name) / sizeof(short)),
 					filter_wstring((const short *)event->reg_rw.value, event->reg_rw.value_length / 2));
 			break;
 		default:
-			out_fprintf(out_file, "reg_%svalue" FIELD_SEP "%S" FIELD_SEP "t=0x%x" PARAM_SEP "l=%d",
+			out_fprintf(out_file, "reg_%svalue" FIELD_SEP "%S" FIELD_SEP
+					"handle=0x%x" PARAM_SEP "name=\"%S\"" PARAM_SEP "t=0x%x" PARAM_SEP "l=%d",
 					event->type == ET_REG_QUERYVALUE ? "query" : "set",
 					event->path,
+					event->reg_rw.handle,
+					filter_wstring(event->reg_rw.name, sizeof(event->reg_rw.name) / sizeof(short)),
 					event->reg_rw.value_type,
 					event->reg_rw.value_length);
 		}

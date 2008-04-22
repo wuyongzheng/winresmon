@@ -114,7 +114,7 @@ struct event {
 	unsigned int stack_ret[MAX_STACK_FRAME];
 #endif
 	int path_length; // <= MAX_PATH_SIZE - 1
-	short path[MAX_PATH_SIZE]; // always '\0' terminated
+	unsigned short path[MAX_PATH_SIZE]; // always '\0' terminated
 	union {
 		// http://msdn2.microsoft.com/en-us/library/ms795806.aspx
 		struct {
@@ -168,7 +168,7 @@ struct event {
 					unsigned long stream_name_length;
 					LARGE_INTEGER stream_size;
 					LARGE_INTEGER stream_allocation_size;
-					short stream_name[MAX_PATH_SIZE];
+					unsigned short stream_name[MAX_PATH_SIZE];
 				} file_info_all;
 				struct {
 					LARGE_INTEGER allocation_size;
@@ -208,11 +208,11 @@ struct event {
 					int replace_if_exists;
 					HANDLE root_directory;
 					unsigned long file_name_length;
-					short file_name[MAX_PATH_SIZE];
+					unsigned short file_name[MAX_PATH_SIZE];
 				} file_info_link;
 				struct {
 					unsigned long file_name_length;
-					short file_name[MAX_PATH_SIZE];
+					unsigned short file_name[MAX_PATH_SIZE];
 				} file_info_name;
 				struct {
 					LARGE_INTEGER creation_time;
@@ -230,7 +230,7 @@ struct event {
 					int replace_if_exists;
 					HANDLE root_directory;
 					unsigned long file_name_length;
-					short file_name[MAX_PATH_SIZE];
+					unsigned short file_name[MAX_PATH_SIZE];
 				} file_info_rename;
 				struct {
 					LARGE_INTEGER allocation_size;
@@ -244,7 +244,7 @@ struct event {
 					unsigned long stream_name_length;
 					LARGE_INTEGER stream_size;
 					LARGE_INTEGER stream_allocation_size;
-					short stream_name[MAX_PATH_SIZE];
+					unsigned short stream_name[MAX_PATH_SIZE];
 				} file_info_stream;
 				struct {
 					LARGE_INTEGER valid_data_length;
@@ -268,6 +268,7 @@ struct event {
 		// http://msdn2.microsoft.com/en-us/library/ms804372.aspx
 		struct {
 			HANDLE handle;
+			unsigned short name[MAX_PATH_SIZE]; // always '\0' terminated
 		} reg_delete_value;
 		// http://msdn2.microsoft.com/en-us/library/ms804360.aspx
 		struct {
@@ -278,6 +279,7 @@ struct event {
 		// http://msdn2.microsoft.com/en-us/library/ms804346.aspx
 		struct {
 			HANDLE handle;
+			unsigned short name[MAX_PATH_SIZE]; // always '\0' terminated
 			unsigned long value_type;
 			unsigned long value_length;
 			char value[MAX_IO_SIZE];
