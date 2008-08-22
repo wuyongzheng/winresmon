@@ -13,6 +13,10 @@ function getaddr (fd) {
 	next;
 }
 
+function tabsepaddr (addr) {
+	return gensub(":", "\t", 1, addr);
+}
+
 BEGIN {
 	FS = "\t";
 	OFS = "\t";
@@ -35,21 +39,21 @@ $9 ~ /^tdi_/ && $8 == "STATUS_SUCCESS" && $6 ~ /[Ss]kype.exe$/ {
 	} else if ($9 == "tdi_associate_address") {
 		assocfd[params2["f2"]] = params2["f"];
 	} else if ($9 == "tdi_receive") {
-		print "recv", "tcp", $4, $2, $3, params2["f"], getaddr(params2["f"]), params2["len"];
+		print "recv", "tcp", $4, $2, $3, params2["f"], tabsepaddr(getaddr(params2["f"])), params2["len"];
 	} else if ($9 == "tdi_receive_datagram") {
 		# no sample log to verify
-		print "recv", "udp", $4, $2, $3, params2["f"], params2["reqaddr"], params2["len"];
+		print "recv", "udp", $4, $2, $3, params2["f"], tabsepaddr(params2["reqaddr"]), params2["len"];
 	} else if ($9 == "tdi_send") {
-		print "send", "tcp", $4, $2, $3, params2["f"], getaddr(params2["f"]), params2["len"];
+		print "send", "tcp", $4, $2, $3, params2["f"], tabsepaddr(getaddr(params2["f"])), params2["len"];
 	} else if ($9 == "tdi_send_datagram") {
-		print "send", "udp", $4, $2, $3, params2["f"], params2["addr"], params2["len"];
+		print "send", "udp", $4, $2, $3, params2["f"], tabsepaddr(params2["addr"]), params2["len"];
 	} else if ($9 == "tdi_event_receive" || $9 == "tdi_event_receive_expedited") {
-		print "recv", "tcp", $4, $2, $3, params2["f"], getaddr(params2["f"]), params2["bt"];
+		print "recv", "tcp", $4, $2, $3, params2["f"], tabsepaddr(getaddr(params2["f"])), params2["bt"];
 	} else if ($9 == "tdi_event_chained_receive" || $9 == "tdi_event_chained_receive_expedited") {
-		print "recv", "tcp", $4, $2, $3, params2["f"], getaddr(params2["f"]), params2["len"];
+		print "recv", "tcp", $4, $2, $3, params2["f"], tabsepaddr(getaddr(params2["f"])), params2["len"];
 	} else if ($9 == "tdi_event_receive_datagram") {
-		print "recv", "udp", $4, $2, $3, params2["f"], params2["addr"], params2["bt"];
+		print "recv", "udp", $4, $2, $3, params2["f"], tabsepaddr(params2["addr"]), params2["bt"];
 	} else if ($9 == "tdi_event_chained_receive_datagram") {
-		print "recv", "udp", $4, $2, $3, params2["f"], params2["addr"], params2["len"];
+		print "recv", "udp", $4, $2, $3, params2["f"], tabsepaddr(params2["addr"]), params2["len"];
 	}
 }
