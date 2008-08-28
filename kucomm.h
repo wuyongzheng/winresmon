@@ -25,6 +25,7 @@
 
 enum event_type {
 	ET_IGNORE,
+	ET_DEBUG,
 	ET_FILE_CREATE,
 	ET_FILE_CLOSE,
 	ET_FILE_READ,
@@ -116,6 +117,9 @@ struct event {
 	int path_length; // <= MAX_PATH_SIZE - 1
 	unsigned short path[MAX_PATH_SIZE]; // always '\0' terminated
 	union {
+		struct {
+			char message[MAX_IO_SIZE];
+		} debug;
 		// http://msdn2.microsoft.com/en-us/library/ms795806.aspx
 		struct {
 			ACCESS_MASK desired_access; // e.g. FILE_READ_EA

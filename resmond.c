@@ -331,6 +331,9 @@ static void process_event (const struct event *event)
 			proc->name, proc->owner, get_ntstatus_name(event->status));
 
 	switch (event->type) {
+	case ET_DEBUG:
+		out_fprintf(out_file, "debug" FIELD_SEP FIELD_SEP "message=\"%s\"", event->debug.message);
+		break;
 	case ET_FILE_CREATE:
 		out_fprintf(out_file, "file_create" FIELD_SEP "%S" FIELD_SEP
 				"access=0x%x" PARAM_SEP "share=0x%x" PARAM_SEP "attr=0x%x" PARAM_SEP

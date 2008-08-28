@@ -33,6 +33,8 @@ LARGE_INTEGER __cdecl get_timestamp (void);
 #define get_timestamp() KeQueryPerformanceCounter(NULL);
 #endif
 
+void add_debug_event (const char *format, ...);
+
 struct htable_entry *htable_allocate_entry (void);
 struct htable_entry *htable_get_entry (unsigned long pid, HANDLE handle);
 void htable_put_entry (struct htable_entry *entry);

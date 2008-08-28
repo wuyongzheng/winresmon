@@ -902,6 +902,9 @@ static NTSTATUS tdimon_idc_cr (DEVICE_OBJECT *device_object, IRP *irp, struct td
 		break;
 	}
 	case TDI_SET_EVENT_HANDLER:
+//		add_debug_event("SETEH pid=%d, type=%d, func=%08x", (int)PsGetCurrentProcessId(),
+//				((TDI_REQUEST_KERNEL_SET_EVENT *)context->parameters)->EventType,
+//				((TDI_REQUEST_KERNEL_SET_EVENT *)context->parameters)->EventHandler);
 		event->type = ET_TDI_SET_EVENT_HANDLER;
 		event->tdi_set_event_handler.file_object = context->file_object;
 		event->tdi_set_event_handler.type = ((TDI_REQUEST_KERNEL_SET_EVENT *)context->parameters)->EventType;
@@ -964,6 +967,8 @@ static NTSTATUS tdimon_mj_idc (DEVICE_OBJECT *device_object, IRP *irp)
 	if (ESCAPE_CONDITION)
 		goto out;
 
+//	DbgPrint("IDC pid=%d, minor=%d\n", (int)PsGetCurrentProcessId(), irp_sp->MinorFunction);
+//
 	context = (struct tdimon_context *)ExAllocateFromNPagedLookasideList(&context_list);
 	if (context == NULL)
 		goto out;
