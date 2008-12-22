@@ -55,6 +55,9 @@ NTSTATUS event_buffer_start (void);
 void event_buffer_stop (void);
 void event_buffer_fini (void);
 
+NTSTATUS timer_start (void);
+void timer_stop (void);
+
 NTSTATUS tdi_start (void);
 void tdi_stop (void);
 NTSTATUS tdi_init (void);

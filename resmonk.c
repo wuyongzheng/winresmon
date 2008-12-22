@@ -30,6 +30,9 @@ static NTSTATUS resmonk_start (void)
 	retval = file_start();
 	if (retval != STATUS_SUCCESS)
 		goto out3;
+	retval = timer_start();
+	if (retval != STATUS_SUCCESS)
+		goto out35;
 	retval = reg_start();
 	if (retval != STATUS_SUCCESS)
 		goto out4;
@@ -46,6 +49,8 @@ static NTSTATUS resmonk_start (void)
 out5:
 	reg_stop();
 out4:
+	timer_stop();
+out35:
 	file_stop();
 out3:
 	tdi_stop();
@@ -66,6 +71,7 @@ static void resmonk_stop (void)
 	starting = 1;
 	proc_stop();
 	reg_stop();
+	timer_stop();
 	file_stop();
 	tdi_stop();
 	event_buffer_stop();

@@ -6,4 +6,4 @@ MSC_WARNING_LEVEL = /W3
 
 TARGETLIBS = $(IFSKIT_LIB_PATH)\fltMgr.lib
 C_DEFINES = /DTRACE_STACK /DUSERDTSC
-SOURCES = ../utilk.c ../htable.c ../eventk.c ../tdi.c ../reg.c ../proc.c ../file.c ../resmonk.c
+SOURCES = ../utilk.c ../htable.c ../eventk.c ../tdi.c ../reg.c ../proc.c ../file.c ../timer.c ../resmonk.c
