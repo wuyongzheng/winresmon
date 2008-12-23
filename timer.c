@@ -82,10 +82,9 @@ NTSTATUS timer_start (void)
 void timer_stop (void)
 {
 	NTSTATUS status;
-	ULONG count;
 
 	timer_continue = 0;
-	status = _NtAlertResumeThread(thread_handle, &count);
+	status = _NtAlertResumeThread(thread_handle, NULL);
 	if (status != STATUS_SUCCESS) {
 		DbgPrint("resmon.timer: NtAlertResumeThread failed with %x\n", status);
 	}
