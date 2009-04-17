@@ -6,7 +6,9 @@
 # ps2pdf -sPAPERSIZE=a4 aim.ps
 
 # arr_tid2tn maps tid to unique tn
+# arr_tn2tid
 # arr_pid2pn maps pid to unique pn
+# arr_pn2pid
 # arr_tn2pn
 # arr_ctn_ptn maps child tn to parent tn
 # arr_pn2exe
@@ -20,10 +22,14 @@ BEGIN {
 	tid = int($5);
 	exe = $6;
 
-	if (!(tid in arr_tid2tn))
+	if (!(tid in arr_tid2tn)) {
 		arr_tid2tn[tid] = tid;
-	if (!(pid in arr_pid2pn))
+		arr_tn2tid[tid] = tid;
+	}
+	if (!(pid in arr_pid2pn)) {
 		arr_pid2pn[pid] = pid;
+		arr_pn2pid[pid] = pid;
+	}
 	tn = arr_tid2tn[tid];
 	pn = arr_pid2pn[pid];
 	arr_tn2pn[tn] = pn;
@@ -32,28 +38,20 @@ BEGIN {
 	if ($9 == "thread_create") {
 		ctid = int(substr($11, 5));
 		for (ctn = ctid; ; ctn += 100000) {
-			contained = 0;
-			for (x in arr_tid2tn) {
-				if (arr_tid2tn[x] == ctn)
-					contained = 1;
-			}
-			if (contained == 0)
+			if (!(ctn in arr_tn2tid))
 				break;
 		}
 		arr_tid2tn[ctid] = ctn;
+		arr_tn2tid[ctn] = ctid;
 		arr_ctn_ptn[ctn] = tn;
 	} else if ($9 == "proc_create") {
 		cpid = int(gensub(/.*, pid=/, "", "g", $11));
 		for (cpn = cpid; ; cpn += 100000) {
-			contained = 0;
-			for (x in arr_pid2pn) {
-				if (arr_pid2pn[x] == cpn)
-					contained = 1;
-			}
-			if (contained == 0)
+			if (!(cpn in arr_pn2pid))
 				break;
 		}
 		arr_pid2pn[cpid] = cpn;
+		arr_pn2pid[cpn] = cpid;
 	}
 }
 
