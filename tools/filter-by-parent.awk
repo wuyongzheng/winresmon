@@ -16,4 +16,7 @@ BEGIN {
 	}
 	if (pid in pass)
 		print;
+	if ($9 == "proc_term") {
+		delete pass[pid];
+	}
 }
