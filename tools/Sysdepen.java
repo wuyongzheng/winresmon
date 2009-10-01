@@ -62,12 +62,15 @@ public class Sysdepen {
 	{
 		boolean split_program = false;
 		boolean transitive_reduction = false;
+		boolean separate_dlls = false;
 
 		for (String arg : args) {
 			if (arg.equals("-sp"))
 				split_program = true;
 			else if (arg.equals("-tr"))
 				transitive_reduction = true;
+			else if (arg.equals("-sd"))
+				separate_dlls = true;
 		}
 
 		Hashtable<Integer, String> pn2exe = new Hashtable<Integer, String>();
@@ -116,6 +119,18 @@ public class Sysdepen {
 		System.out.println("rankdir=\"LR\";");
 		System.out.println();
 
+		// program nodes
+		{
+			HashSet<String> prgset = new HashSet<String>();
+			for (String key : prgdll) {
+				String [] arr = key.split("\t");
+				if (!prgset.contains(arr[0])) {
+					prgset.add(arr[0]);
+					System.out.println("\"" + arr[0] + "\" [shape=ellipse];");
+				}
+			}
+		}
+
 		// parent-child relationship
 		if (split_program) {
 			for (int cpn : cpn2ppn.keySet()) {
@@ -134,6 +149,21 @@ public class Sysdepen {
 			}
 			for (String key : pprgcprg.keySet())
 				System.out.println("\"" + key + "\" [label=" + pprgcprg.get(key) + ",style=bold];");
+		}
+
+		// TODO: I don't like making control flow this way.
+		if (separate_dlls) {
+			HashSet<String> dllset = new HashSet<String>();
+			for (String key : prgdll) {
+				String [] arr = key.split("\t");
+				System.out.println("\"" + arr[0] + "\" -> \"" + arr[1] + "\";");
+				if (!dllset.contains(arr[1])) {
+					dllset.add(arr[1]);
+					System.out.println("\"" + arr[1] + "\" [shape=box];");
+				}
+			}
+			System.out.println("}");
+			return;
 		}
 
 		// program dll relationship
