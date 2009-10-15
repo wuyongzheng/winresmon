@@ -1,10 +1,14 @@
 # filter log by process tree
 # the root of the process tree is specified by -v root=<pid>
 # gunzip -c ~/tmp/im-log/aim-install.log.gz | gawk -v root=1336 -f filter-by-parent.awk
+# if more than one root, use "-v root=1336,1627,984"
 
 BEGIN {
 	FS = "\t";
-	pass[root] = 1;
+	split(root, arr, ",");
+	for (k in arr)
+		pass[arr[k]] = 1;
+	delete arr;
 }
 
 {
